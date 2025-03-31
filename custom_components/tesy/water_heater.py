@@ -29,6 +29,14 @@ from .const import (
     ATTR_MODE,
     ATTR_POWER,
     ATTR_TARGET_TEMP,
+    ATTR_CURRENT_TARGET_TEMP,
+    ATTR_CHILD_LOCK,
+    ATTR_VACATION,
+    ATTR_POSITION,
+    ATTR_COUNTDOWN,
+    ATTR_ERROR,
+    ATTR_UPTIME,
+    ATTR_RSSI,
     DOMAIN,
     TESY_MODE_P1,
     TESY_MODE_P2,
@@ -227,8 +235,73 @@ class TesyWaterHeater(TesyEntity, WaterHeaterEntity):
     @property
     def extra_state_attributes(self) -> dict[str, str] | None:
         """Return the state attributes."""
-        return {
+        attributes = {
             "is_heating": ATTR_IS_HEATING in self.coordinator.data
             and self.coordinator.data[ATTR_IS_HEATING] == "1",
             "target_temp_step": 1,
         }
+
+        # Add current target temperature (what the controller is actually using)
+        if ATTR_CURRENT_TARGET_TEMP in self.coordinator.data:
+            attributes["current_target_temperature"] = float(
+                self.coordinator.data[ATTR_CURRENT_TARGET_TEMP]
+            )
+
+        # Add child lock status
+        if ATTR_CHILD_LOCK in self.coordinator.data:
+            attributes["child_lock"] = self.coordinator.data[ATTR_CHILD_LOCK] == "1"
+
+        # Add vacation mode status
+        if ATTR_VACATION in self.coordinator.data:
+            attributes["vacation_mode"] = self.coordinator.data[ATTR_VACATION] == "1"
+
+        # Add position (vertical/horizontal)
+        if ATTR_POSITION in self.coordinator.data:
+            position_value = self.coordinator.data[ATTR_POSITION]
+            attributes["position"] = (
+                "Vertical" if position_value == "0" else "Horizontal"
+            )
+
+        # Add countdown timer
+        if ATTR_COUNTDOWN in self.coordinator.data:
+            countdown_minutes = int(self.coordinator.data[ATTR_COUNTDOWN])
+            if countdown_minutes > 0:
+                attributes["countdown_timer_minutes"] = countdown_minutes
+                attributes["countdown_timer_seconds"] = countdown_minutes * 60
+                attributes["time_to_target_temperature"] = f"{countdown_minutes} minutes"
+
+        # Add error status
+        if ATTR_ERROR in self.coordinator.data:
+            error_code = self.coordinator.data[ATTR_ERROR]
+            attributes["error_code"] = error_code
+            attributes["has_error"] = error_code != "00"
+
+        # Add uptime information
+        if ATTR_UPTIME in self.coordinator.data:
+            uptime_seconds = int(self.coordinator.data[ATTR_UPTIME])
+            uptime_hours = uptime_seconds // 3600
+            uptime_days = uptime_hours // 24
+            attributes["uptime_seconds"] = uptime_seconds
+            attributes["uptime_hours"] = uptime_hours
+            attributes["uptime_days"] = uptime_days
+
+        # Add WiFi signal strength
+        if ATTR_RSSI in self.coordinator.data:
+            rssi = int(self.coordinator.data[ATTR_RSSI])
+            attributes["wifi_signal_dbm"] = rssi
+            # Convert to quality percentage (rough approximation)
+            if rssi >= -50:
+                signal_quality = 100
+            elif rssi >= -60:
+                signal_quality = 80
+            elif rssi >= -70:
+                signal_quality = 60
+            elif rssi >= -80:
+                signal_quality = 40
+            elif rssi >= -90:
+                signal_quality = 20
+            else:
+                signal_quality = 0
+            attributes["wifi_signal_quality"] = f"{signal_quality}%"
+
+        return attributes

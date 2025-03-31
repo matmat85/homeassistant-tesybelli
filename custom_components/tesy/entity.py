@@ -14,12 +14,18 @@ from .const import (
     ATTR_MAC,
     ATTR_BOOST,
     ATTR_SOFTWARE,
+    ATTR_HARDWARE_VERSION,
+    ATTR_EXTRA,
     DOMAIN,
     ATTR_API,
 )
 from .coordinator import TesyCoordinator
 
 import logging
+import base64
+import json
+from urllib.parse import unquote
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -59,6 +65,24 @@ class TesyEntity(CoordinatorEntity[TesyCoordinator]):
                 "name"
             ]
 
+        # Try to get custom name from extra field
+        device_name = device_model
+        if ATTR_EXTRA in self.coordinator.data:
+            try:
+                extra_data = self.coordinator.data[ATTR_EXTRA]
+                decoded = unquote(extra_data)
+                json_data = base64.b64decode(decoded).decode('utf-8')
+                extra_info = json.loads(json_data)
+                custom_name = extra_info.get("tzname", device_model)
+                if custom_name and custom_name != "Unknown":
+                    device_name = f"{device_model} ({custom_name})"
+            except:
+                pass  # Use default name if decoding fails
+
+        # Get hardware version if available
+        hw_version = self.coordinator.data.get(ATTR_HARDWARE_VERSION, 
+                                              self.coordinator.data.get(ATTR_SOFTWARE, "Unknown"))
+
         return DeviceInfo(
             identifiers={
                 (
@@ -68,7 +92,9 @@ class TesyEntity(CoordinatorEntity[TesyCoordinator]):
             },
             manufacturer="Tesy",
             model=device_model,
-            sw_version=self.coordinator.data[ATTR_SOFTWARE],
+            name=device_name,
+            sw_version=self.coordinator.data.get(ATTR_SOFTWARE, "Unknown"),
+            hw_version=hw_version,
         )
 
     @property
