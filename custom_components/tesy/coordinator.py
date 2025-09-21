@@ -136,3 +136,24 @@ class TesyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return await self.hass.async_add_executor_job(self._client.scan_for_json_endpoints)
         else:
             return {"error": "JSON endpoint scanning not supported"}
+
+    async def async_get_esp32_chip_info(self) -> dict[str, Any]:
+        """Get ESP32 chip information."""
+        if hasattr(self._client, "get_esp32_chip_info"):
+            return await self.hass.async_add_executor_job(self._client.get_esp32_chip_info)
+        else:
+            return {"error": "ESP32 chip info not supported"}
+
+    async def async_get_esp32_performance_metrics(self) -> dict[str, Any]:
+        """Get ESP32 performance metrics."""
+        if hasattr(self._client, "get_esp32_performance_metrics"):
+            return await self.hass.async_add_executor_job(self._client.get_esp32_performance_metrics)
+        else:
+            return {"error": "ESP32 performance metrics not supported"}
+
+    async def async_get_esp32_network_details(self) -> dict[str, Any]:
+        """Get ESP32 network details."""
+        if hasattr(self._client, "get_esp32_network_details"):
+            return await self.hass.async_add_executor_job(self._client.get_esp32_network_details)
+        else:
+            return {"error": "ESP32 network details not supported"}

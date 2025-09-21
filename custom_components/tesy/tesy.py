@@ -289,6 +289,101 @@ class Tesy:
                 
         return json_results
 
+    def get_esp32_chip_info(self) -> dict[str, Any]:
+        """Get detailed ESP32 chip information."""
+        chip_info = {}
+        
+        # Try ESP32-specific endpoints
+        chip_endpoints = ["/chip", "/api/chip", "/system", "/api/system", "/info", "/api/info"]
+        
+        for endpoint in chip_endpoints:
+            try:
+                response = self._probe_endpoint(endpoint)
+                if response and response.status_code == 200:
+                    try:
+                        data = response.json()
+                        # Look for chip-specific information
+                        chip_fields = [
+                            'chip_id', 'chip_model', 'chip_revision', 'chip_cores',
+                            'flash_size', 'flash_speed', 'psram_size', 'cpu_freq',
+                            'sdk_version', 'esp_idf_version', 'arduino_version'
+                        ]
+                        
+                        for field in chip_fields:
+                            if field in data:
+                                chip_info[field] = data[field]
+                                
+                    except:
+                        # If not JSON, look for text patterns
+                        text = response.text.lower()
+                        if 'esp32' in text:
+                            chip_info[f"{endpoint}_contains_esp32"] = True
+                        if 'chip' in text:
+                            chip_info[f"{endpoint}_contains_chip_info"] = True
+            except:
+                continue
+                
+        return chip_info
+
+    def get_esp32_performance_metrics(self) -> dict[str, Any]:
+        """Get ESP32 performance and diagnostic metrics."""
+        metrics = {}
+        
+        # Performance monitoring endpoints
+        perf_endpoints = ["/metrics", "/api/metrics", "/heap", "/api/heap", "/stats", "/api/stats"]
+        
+        for endpoint in perf_endpoints:
+            try:
+                response = self._probe_endpoint(endpoint)
+                if response and response.status_code == 200:
+                    try:
+                        data = response.json()
+                        
+                        # Look for performance metrics
+                        perf_fields = [
+                            'free_heap', 'total_heap', 'heap_size', 'heap_usage',
+                            'cpu_load', 'cpu_usage', 'temperature', 'voltage',
+                            'tasks_running', 'tasks_total', 'stack_high_water'
+                        ]
+                        
+                        for field in perf_fields:
+                            if field in data:
+                                metrics[f"{endpoint}_{field}"] = data[field]
+                                
+                    except:
+                        pass
+            except:
+                continue
+                
+        return metrics
+
+    def get_esp32_network_details(self) -> dict[str, Any]:
+        """Get detailed network configuration and statistics."""
+        network_info = {}
+        
+        # Network-specific endpoints
+        network_endpoints = [
+            "/network", "/api/network", "/wifi", "/api/wifi",
+            "/ethernet", "/api/ethernet", "/ip", "/api/ip"
+        ]
+        
+        for endpoint in network_endpoints:
+            try:
+                response = self._probe_endpoint(endpoint)
+                if response and response.status_code == 200:
+                    try:
+                        data = response.json()
+                        network_info[f"from_{endpoint.replace('/', '_')}"] = data
+                    except:
+                        # Look for network info in text
+                        text = response.text
+                        if len(text) < 1000:  # Avoid huge responses
+                            network_info[f"from_{endpoint.replace('/', '_')}_text"] = text[:200]
+            except:
+                continue
+                
+        return network_info
+
     def _probe_endpoint(self, endpoint: str, timeout: int = 5) -> requests.Response:
         """Probe a specific endpoint on the ESP32."""
         url = f"http://{self._ip_address}{endpoint}"

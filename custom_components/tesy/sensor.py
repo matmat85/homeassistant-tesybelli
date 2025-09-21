@@ -200,26 +200,90 @@ async def async_setup_entry(
             None,
             None,
         ),
-        TesyDiagnosticSensor(
+        TesyMemoryUsageSensor(
             hass,
             coordinator,
             entry,
             SensorEntityDescription(
-                key="diagnostic",
-                name="API Response",
-                icon="mdi:code-json",
+                key="memory_usage",
+                name="Free Memory",
+                device_class=SensorDeviceClass.DATA_SIZE,
+                state_class=SensorStateClass.MEASUREMENT,
+                native_unit_of_measurement="KB",
+                icon="mdi:memory",
             ),
             None,
             None,
         ),
-        TesyESP32DiscoverySensor(
+        TesyBootReasonSensor(
             hass,
             coordinator,
             entry,
             SensorEntityDescription(
-                key="esp32_discovery",
-                name="ESP32 Discovery",
-                icon="mdi:chip",
+                key="boot_reason",
+                name="Last Boot Reason",
+                icon="mdi:restart",
+            ),
+            None,
+            None,
+        ),
+        TesyFirmwareBuildSensor(
+            hass,
+            coordinator,
+            entry,
+            SensorEntityDescription(
+                key="firmware_build",
+                name="Firmware Build Date",
+                icon="mdi:calendar-clock",
+            ),
+            None,
+            None,
+        ),
+        TesyETASensor(
+            hass,
+            coordinator,
+            entry,
+            SensorEntityDescription(
+                key="ready_eta",
+                name="Ready ETA",
+                device_class=SensorDeviceClass.TIMESTAMP,
+                icon="mdi:clock-end",
+            ),
+            None,
+            None,
+        ),
+        TesyModeTextSensor(
+            hass,
+            coordinator,
+            entry,
+            SensorEntityDescription(
+                key="mode_text",
+                name="Operation Mode",
+                icon="mdi:water-boiler",
+            ),
+            None,
+            None,
+        ),
+        TesyErrorTextSensor(
+            hass,
+            coordinator,
+            entry,
+            SensorEntityDescription(
+                key="error_text",
+                name="Error Description",
+                icon="mdi:alert-circle-outline",
+            ),
+            None,
+            None,
+        ),
+        TesyStatusSnapshotSensor(
+            hass,
+            coordinator,
+            entry,
+            SensorEntityDescription(
+                key="status_snapshot",
+                name="Full Status Snapshot",
+                icon="mdi:file-code-outline",
             ),
             None,
             None,
@@ -455,6 +519,284 @@ class TesyPositionSensor(TesySensor):
             "position_code": position_raw,
             "description": "Installation orientation affects maximum shower settings for BelliSlimo models"
         }
+
+
+class TesyMemoryUsageSensor(TesySensor):
+    @property
+    def native_value(self):
+        """Return ESP32 free memory from system info."""
+        # Try to get memory info from ESP32 discovery
+        try:
+            if hasattr(self.coordinator._client, 'get_esp32_system_info'):
+                system_info = self.coordinator._client.get_esp32_system_info()
+                for endpoint_data in system_info.values():
+                    if isinstance(endpoint_data, dict):
+                        # Look for common memory field names
+                        memory_fields = ['free_heap', 'freeheap', 'heap_free', 'memory_free', 'free_memory']
+                        for field in memory_fields:
+                            if field in endpoint_data:
+                                # Convert bytes to KB
+                                return int(endpoint_data[field]) // 1024
+            return None
+        except:
+            return None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Return memory information as attributes."""
+        try:
+            if hasattr(self.coordinator._client, 'get_esp32_system_info'):
+                system_info = self.coordinator._client.get_esp32_system_info()
+                memory_attrs = {}
+                for endpoint, data in system_info.items():
+                    if isinstance(data, dict):
+                        # Extract all memory-related fields
+                        memory_fields = ['free_heap', 'total_heap', 'heap_size', 'flash_size', 'flash_free']
+                        for field in memory_fields:
+                            if field in data:
+                                memory_attrs[field] = data[field]
+                return memory_attrs if memory_attrs else None
+        except:
+            return None
+
+
+class TesyBootReasonSensor(TesySensor):
+    @property
+    def native_value(self):
+        """Return the last boot reason."""
+        try:
+            if hasattr(self.coordinator._client, 'get_esp32_system_info'):
+                system_info = self.coordinator._client.get_esp32_system_info()
+                for endpoint_data in system_info.values():
+                    if isinstance(endpoint_data, dict):
+                        # Look for boot/reset reason fields
+                        boot_fields = ['reset_reason', 'boot_reason', 'last_reset', 'restart_reason']
+                        for field in boot_fields:
+                            if field in endpoint_data:
+                                return str(endpoint_data[field])
+            return "Unknown"
+        except:
+            return "Unknown"
+
+
+class TesyFirmwareBuildSensor(TesySensor):
+    @property
+    def native_value(self):
+        """Return firmware build information."""
+        try:
+            if hasattr(self.coordinator._client, 'get_esp32_system_info'):
+                system_info = self.coordinator._client.get_esp32_system_info()
+                for endpoint_data in system_info.values():
+                    if isinstance(endpoint_data, dict):
+                        # Look for build date/version fields
+                        build_fields = ['build_date', 'compile_date', 'firmware_date', 'build_time', 'version']
+                        for field in build_fields:
+                            if field in endpoint_data:
+                                return str(endpoint_data[field])
+                                
+                        # Try to find ESP-IDF version
+                        if 'esp_idf_version' in endpoint_data:
+                            return f"ESP-IDF {endpoint_data['esp_idf_version']}"
+            return "Unknown"
+        except:
+            return "Unknown"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Return firmware information as attributes."""
+        try:
+            if hasattr(self.coordinator._client, 'get_esp32_system_info'):
+                system_info = self.coordinator._client.get_esp32_system_info()
+                firmware_attrs = {}
+                for endpoint, data in system_info.items():
+                    if isinstance(data, dict):
+                        # Extract firmware-related fields
+                        fw_fields = ['sdk_version', 'esp_idf_version', 'chip_model', 'chip_cores', 'chip_revision']
+                        for field in fw_fields:
+                            if field in data:
+                                firmware_attrs[field] = data[field]
+                return firmware_attrs if firmware_attrs else None
+        except:
+            return None
+
+
+class TesyETASensor(TesySensor):
+    @property
+    def native_value(self):
+        """Return the ETA when target temperature will be reached."""
+        try:
+            countdown_minutes = int(self.coordinator.data.get(ATTR_COUNTDOWN, 0))
+            if countdown_minutes > 0:
+                from datetime import datetime, timedelta
+                eta = datetime.now() + timedelta(minutes=countdown_minutes)
+                return eta.isoformat()
+            return None
+        except:
+            return None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Return ETA information as attributes."""
+        try:
+            countdown_minutes = int(self.coordinator.data.get(ATTR_COUNTDOWN, 0))
+            if countdown_minutes > 0:
+                from datetime import datetime, timedelta
+                eta = datetime.now() + timedelta(minutes=countdown_minutes)
+                return {
+                    "countdown_minutes": countdown_minutes,
+                    "eta_local": eta.strftime("%Y-%m-%d %H:%M:%S"),
+                    "eta_relative": f"in {countdown_minutes} minutes"
+                }
+            return None
+        except:
+            return None
+
+
+class TesyModeTextSensor(TesySensor):
+    @property
+    def native_value(self):
+        """Return human-readable operation mode."""
+        mode_code = self.coordinator.data.get(ATTR_MODE, "0")
+        
+        mode_map = {
+            "0": "Performance",
+            "1": "P1",
+            "2": "P2", 
+            "3": "P3",
+            "4": "ECO",
+            "5": "ECO Comfort",
+            "6": "ECO Night"
+        }
+        
+        return mode_map.get(str(mode_code), f"Unknown ({mode_code})")
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Return mode information as attributes."""
+        mode_code = self.coordinator.data.get(ATTR_MODE, "0")
+        power_state = self.coordinator.data.get(ATTR_POWER, "0")
+        
+        mode_descriptions = {
+            "0": "Manual temperature control",
+            "1": "Program 1 - Heat in advance for scheduled time",
+            "2": "Program 2 - Heat in advance for scheduled time",
+            "3": "Program 3 - Thermostat mode",
+            "4": "Energy saving mode",
+            "5": "ECO Comfort mode",
+            "6": "ECO Night mode"
+        }
+        
+        return {
+            "mode_code": mode_code,
+            "description": mode_descriptions.get(str(mode_code), "Unknown mode"),
+            "powered_on": power_state == "1"
+        }
+
+
+class TesyErrorTextSensor(TesySensor):
+    @property
+    def native_value(self):
+        """Return human-readable error description."""
+        error_code = self.coordinator.data.get(ATTR_ERROR, "00")
+        
+        # Error code mapping - extend as more codes are discovered
+        error_map = {
+            "00": "No Error",
+            "01": "Temperature Sensor Error",
+            "02": "Heating Element Error", 
+            "03": "Communication Error",
+            "04": "Power Supply Error",
+            "05": "Memory Error",
+            "06": "Network Error",
+            "07": "Configuration Error",
+            "08": "Hardware Error",
+            "09": "Software Error",
+            "10": "Safety Error"
+        }
+        
+        return error_map.get(str(error_code), f"Unknown Error ({error_code})")
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Return error information as attributes."""
+        error_code = self.coordinator.data.get(ATTR_ERROR, "00")
+        
+        return {
+            "error_code": error_code,
+            "has_error": error_code != "00",
+            "severity": "critical" if error_code != "00" else "none"
+        }
+
+
+class TesyStatusSnapshotSensor(TesySensor):
+    @property
+    def native_value(self):
+        """Return overall status."""
+        api_status = self.coordinator.data.get("api", "Unknown")
+        return "OK" if api_status == "OK" else "Error"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Return full device status as a JSON snapshot."""
+        # Core operational data
+        snapshot = {
+            # Temperature and heating
+            "temperature": self.coordinator.data.get(ATTR_CURRENT_TEMP),
+            "target_temperature": self.coordinator.data.get(ATTR_TARGET_TEMP),
+            "controller_target": self.coordinator.data.get(ATTR_CURRENT_TARGET_TEMP),
+            "heating_active": self.coordinator.data.get(ATTR_IS_HEATING) == "1",
+            
+            # Mode and control
+            "mode_code": self.coordinator.data.get(ATTR_MODE),
+            "power_on": self.coordinator.data.get(ATTR_POWER) == "1",
+            "boost_active": self.coordinator.data.get(ATTR_BOOST) == "1",
+            
+            # Status flags
+            "child_lock": self.coordinator.data.get(ATTR_CHILD_LOCK) == "1",
+            "vacation_mode": self.coordinator.data.get(ATTR_VACATION) == "1",
+            "error_code": self.coordinator.data.get(ATTR_ERROR),
+            
+            # Timing
+            "countdown_minutes": self.coordinator.data.get(ATTR_COUNTDOWN),
+            "device_time": self.coordinator.data.get(ATTR_DATE),
+            "uptime_seconds": self.coordinator.data.get(ATTR_UPTIME),
+            
+            # Network
+            "wifi_ip": self.coordinator.data.get(ATTR_WIFI_IP),
+            "wifi_ssid": self.coordinator.data.get(ATTR_WIFI_SSID),
+            "wifi_rssi": self.coordinator.data.get(ATTR_RSSI),
+            
+            # Device info
+            "device_id": self.coordinator.data.get(ATTR_DEVICE_ID),
+            "mac_address": self.coordinator.data.get(ATTR_MAC),
+            "hardware_version": self.coordinator.data.get(ATTR_HARDWARE_VERSION),
+            "software_version": self.coordinator.data.get(ATTR_SOFTWARE),
+            "position": self.coordinator.data.get(ATTR_POSITION),
+            "max_temperature": self.coordinator.data.get(ATTR_MAX_SHOWERS),
+            
+            # Advanced data
+            "timezone": self.coordinator.data.get(ATTR_TIMEZONE),
+            "profile": self.coordinator.data.get(ATTR_PROFILE),
+            "energy_counter": self.coordinator.data.get(ATTR_LONG_COUNTER),
+            "reset_flag": self.coordinator.data.get(ATTR_RESET),
+        }
+        
+        # Add programs (P1, P2, P3 for each day)
+        programs = {}
+        for mode in ["P1", "P2", "P3"]:
+            for day in ["MO", "TU", "WE", "TH", "FR", "SA", "SU"]:
+                key = f"prg{mode}{day}"
+                if key in self.coordinator.data:
+                    programs[f"{mode.lower()}_{day.lower()}"] = self.coordinator.data[key]
+        
+        if programs:
+            snapshot["programs"] = programs
+        
+        # Add vacation program if available
+        if ATTR_PROGRAM_VACATION in self.coordinator.data:
+            snapshot["vacation_program"] = self.coordinator.data[ATTR_PROGRAM_VACATION]
+        
+        return snapshot
 
 
 class TesyDiagnosticSensor(TesySensor):
