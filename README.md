@@ -1,4 +1,4 @@
-# Home Assistant Tesy integration
+# Home Assistant Tesy Test Integration
 
 This unofficial Tesy integration allows you to control smart wifi devices based on external esp32 wifi module (black pcb).
 It won't work if you have older device based on Atheros AR9331 chipset since the local API is different. In this case the module could be replaced with esp32 replacement module as they are compatible with most of Tesy water heaters, even if not comming with WiFi from the factory.
@@ -8,6 +8,36 @@ Tested with:
 - [Tesy Modeco Cloud GCV 150 47 24D C22 ECW](https://tesy.com/products/electric-water-heaters/modeco-series/modeco-cloud/?product=gcv-1504724d-c22-ecw)
 - BilightSmart
 - BelliSlimo
+
+## Enhanced Features
+
+This enhanced version includes comprehensive ESP32 discovery capabilities and improved JSON interpretation.
+
+### 🆕 **Enhanced JSON Interpretation**
+- Better parsing of comprehensive JSON responses
+- Support for all new fields like `cdt` (countdown timer in minutes), `lck` (child lock), `vac` (vacation mode)
+- Enhanced error handling and device information
+
+### 🔍 **ESP32 Discovery Features**
+- **ESP32 Discovery Sensor**: Automatically probes for additional endpoints
+- **Discovery Services**: Manual discovery services for system info, WiFi, filesystem
+- **Endpoint Testing**: Test specific endpoints to find hidden features
+
+### 📊 **New Sensors**
+- WiFi Signal Strength
+- Device Uptime
+- Countdown Timer (properly shows minutes until target temperature)
+- Error Code Sensor
+- Hardware Version
+- WiFi IP & SSID
+- Installation Position (Vertical/Horizontal)
+- Device Name (decoded from extra field)
+
+### ⚡ **New Binary Sensors**
+- Child Lock Status
+- Vacation Mode Status
+- Heating Status
+- Error Status
 
 ## Highlights
 
@@ -32,7 +62,44 @@ Temperature setpoint is only used in manual (Performance) mode. In any other mod
 * Follow the steps
 * Restart Home Assistant
 
-### Manual Installation (not recommended)
+### Manual Installation (Enhanced Version)
 
-* Copy the entire `custom_components/tesy/` directory to your server's `<config>/custom_components` directory
+* Copy the entire `custom_components/tesy/` directory to your server's `<config>/custom_components/tesytest` directory
 * Restart Home Assistant
+
+**Note**: When downloaded, this enhanced version will be located in `/config/custom_components/tesytest`
+
+## ESP32 Discovery Services
+
+This enhanced version provides several discovery services:
+
+### `tesytest.discover_esp32`
+Comprehensive endpoint discovery:
+```yaml
+service: tesytest.discover_esp32
+data:
+  entity_id: water_heater.your_tesy_device
+```
+
+### `tesytest.get_esp32_system_info`
+Get detailed system information:
+```yaml
+service: tesytest.get_esp32_system_info
+data:
+  entity_id: water_heater.your_tesy_device
+```
+
+### `tesytest.get_esp32_wifi_info`
+Get WiFi-specific information:
+```yaml
+service: tesytest.get_esp32_wifi_info
+data:
+  entity_id: water_heater.your_tesy_device
+```
+
+### `tesytest.get_esp32_filesystem_info`
+Get filesystem information:
+```yaml
+service: tesytest.get_esp32_filesystem_info
+data:
+  entity_id: water_heater.your_tesy_device

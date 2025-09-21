@@ -1,6 +1,6 @@
-# ESP32 Discovery Guide for Tesy Integration
+# ESP32 Discovery Guide for Tesy Test Integration
 
-This guide explains how to discover additional information from your Tesy water heater's ESP32 WiFi module.
+This guide explains how to discover additional information from your Tesy water heater's ESP32 WiFi module using the enhanced Tesy Test integration.
 
 ## Overview
 
@@ -19,38 +19,38 @@ The integration automatically creates an "ESP32 Discovery" sensor that:
 
 You can manually trigger discovery using Home Assistant services:
 
-#### `tesy.discover_esp32`
+#### `tesytest.discover_esp32`
 Comprehensive endpoint discovery that tests common ESP32 paths:
 
 ```yaml
-service: tesy.discover_esp32
+service: tesytest.discover_esp32
 data:
   entity_id: water_heater.your_tesy_device
 ```
 
-#### `tesy.get_esp32_system_info`
+#### `tesytest.get_esp32_system_info`
 Get detailed system information:
 
 ```yaml
-service: tesy.get_esp32_system_info
+service: tesytest.get_esp32_system_info
 data:
   entity_id: water_heater.your_tesy_device
 ```
 
-#### `tesy.get_esp32_wifi_info`
+#### `tesytest.get_esp32_wifi_info`
 Get WiFi-specific information:
 
 ```yaml
-service: tesy.get_esp32_wifi_info
+service: tesytest.get_esp32_wifi_info
 data:
   entity_id: water_heater.your_tesy_device
 ```
 
-#### `tesy.get_esp32_filesystem_info`
+#### `tesytest.get_esp32_filesystem_info`
 Get filesystem information:
 
 ```yaml
-service: tesy.get_esp32_filesystem_info
+service: tesytest.get_esp32_filesystem_info
 data:
   entity_id: water_heater.your_tesy_device
 ```
@@ -112,7 +112,7 @@ automation:
   - alias: "ESP32 Discovery Complete"
     trigger:
       - platform: event
-        event_type: tesy_esp32_discovery
+        event_type: tesytest_esp32_discovery
     action:
       - service: persistent_notification.create
         data:

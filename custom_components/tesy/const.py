@@ -2,7 +2,7 @@
 
 from homeassistant.const import CONF_IP_ADDRESS
 
-DOMAIN = "tesy"
+DOMAIN = "tesytest"
 HTTP_TIMEOUT = 15
 UPDATE_INTERVAL = 30
 
