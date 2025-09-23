@@ -4,6 +4,8 @@ from __future__ import annotations
 import base64
 import json
 from urllib.parse import unquote
+from typing import Any
+from datetime import datetime
 
 from homeassistant.components.sensor import (
     SensorEntity,
@@ -39,6 +41,17 @@ from .const import (
     ATTR_CHILD_LOCK,
     ATTR_VACATION,
     ATTR_POSITION,
+    ATTR_TARGET_TEMP,
+    ATTR_CURRENT_TARGET_TEMP,
+    ATTR_MAX_SHOWERS,
+    ATTR_MODE,
+    ATTR_POWER,
+    ATTR_BOOST,
+    ATTR_IS_HEATING,
+    ATTR_DEVICE_ID,
+    ATTR_SOFTWARE,
+    ATTR_MAC,
+    ATTR_DATE,
 )
 from .coordinator import TesyCoordinator
 
@@ -200,41 +213,170 @@ async def async_setup_entry(
             None,
             None,
         ),
-        TesyMemoryUsageSensor(
+        # New sensors from REST script
+        TesyMinutesToReadySensor(
             hass,
             coordinator,
             entry,
             SensorEntityDescription(
-                key="memory_usage",
-                name="Free Memory",
-                device_class=SensorDeviceClass.DATA_SIZE,
+                key="minutes_to_ready",
+                name="Minutes To Ready",
+                device_class=None,
                 state_class=SensorStateClass.MEASUREMENT,
-                native_unit_of_measurement="KB",
-                icon="mdi:memory",
+                native_unit_of_measurement=UnitOfTime.MINUTES,
+                icon="mdi:timer",
             ),
             None,
             None,
         ),
-        TesyBootReasonSensor(
+        TesyReadyETASensor(
             hass,
             coordinator,
             entry,
             SensorEntityDescription(
-                key="boot_reason",
-                name="Last Boot Reason",
-                icon="mdi:restart",
+                key="ready_eta",
+                name="Ready ETA",
+                device_class=SensorDeviceClass.TIMESTAMP,
+                icon="mdi:clock-time-five-outline",
             ),
             None,
             None,
         ),
-        TesyFirmwareBuildSensor(
+        TesyCurrentStepSensor(
             hass,
             coordinator,
             entry,
             SensorEntityDescription(
-                key="firmware_build",
-                name="Firmware Build Date",
-                icon="mdi:calendar-clock",
+                key="current_step",
+                name="Current Step",
+                state_class=SensorStateClass.MEASUREMENT,
+                icon="mdi:stairs",
+            ),
+            None,
+            None,
+        ),
+        TesyTargetStepSensor(
+            hass,
+            coordinator,
+            entry,
+            SensorEntityDescription(
+                key="target_step",
+                name="Target Step",
+                state_class=SensorStateClass.MEASUREMENT,
+                icon="mdi:target",
+            ),
+            None,
+            None,
+        ),
+        TesyRequestedStepSensor(
+            hass,
+            coordinator,
+            entry,
+            SensorEntityDescription(
+                key="requested_step",
+                name="Requested Step",
+                state_class=SensorStateClass.MEASUREMENT,
+                icon="mdi:run",
+            ),
+            None,
+            None,
+        ),
+        TesyModeCodeSensor(
+            hass,
+            coordinator,
+            entry,
+            SensorEntityDescription(
+                key="mode_code",
+                name="Mode Code",
+                state_class=SensorStateClass.MEASUREMENT,
+                icon="mdi:tune-variant",
+            ),
+            None,
+            None,
+        ),
+        TesyModeTextSensor(
+            hass,
+            coordinator,
+            entry,
+            SensorEntityDescription(
+                key="mode_text",
+                name="Mode",
+                icon="mdi:water-boiler",
+            ),
+            None,
+            None,
+        ),
+        TesyDeviceTimeSensor(
+            hass,
+            coordinator,
+            entry,
+            SensorEntityDescription(
+                key="device_time",
+                name="Device Time",
+                device_class=SensorDeviceClass.TIMESTAMP,
+                icon="mdi:clock",
+            ),
+            None,
+            None,
+        ),
+        TesyWarmupCounterSensor(
+            hass,
+            coordinator,
+            entry,
+            SensorEntityDescription(
+                key="warmup_counter",
+                name="Warmup Counter",
+                state_class=SensorStateClass.TOTAL,
+                icon="mdi:counter",
+            ),
+            None,
+            None,
+        ),
+        TesyMaxStepSensor(
+            hass,
+            coordinator,
+            entry,
+            SensorEntityDescription(
+                key="max_step",
+                name="Max Step",
+                state_class=SensorStateClass.MEASUREMENT,
+                icon="mdi:numeric-4-box-outline",
+            ),
+            None,
+            None,
+        ),
+        TesyErrorCodeTextSensor(
+            hass,
+            coordinator,
+            entry,
+            SensorEntityDescription(
+                key="error_code_text",
+                name="Error Code Text",
+                icon="mdi:alert-circle",
+            ),
+            None,
+            None,
+        ),
+        TesyStatusSnapshotSensor(
+            hass,
+            coordinator,
+            entry,
+            SensorEntityDescription(
+                key="status_snapshot",
+                name="Status Snapshot",
+                icon="mdi:file-code-outline",
+            ),
+            None,
+            None,
+        ),
+        TesyDiagnosticSensor(
+            hass,
+            coordinator,
+            entry,
+            SensorEntityDescription(
+                key="diagnostic",
+                name="Diagnostic Status",
+                icon="mdi:stethoscope",
             ),
             None,
             None,
@@ -602,51 +744,178 @@ class TesyDiagnosticSensor(TesySensor):
         return debug_info
 
 
-class TesyESP32DiscoverySensor(TesySensor):
+# New sensors from the REST script
+class TesyMinutesToReadySensor(TesySensor):
     @property
     def native_value(self):
-        """Return ESP32 discovery status."""
-        # This sensor will trigger ESP32 discovery on update
-        try:
-            if hasattr(self.coordinator._client, 'probe_esp32_info'):
-                discovery_info = self.coordinator._client.probe_esp32_info()
-                endpoints_found = len(discovery_info.get("endpoints_discovered", []))
-                return f"Found {endpoints_found} endpoints"
-            else:
-                return "Discovery not supported"
-        except Exception as e:
-            return f"Discovery failed: {str(e)}"
+        """Return the minutes until ready value."""
+        return self.coordinator.get_minutes_to_ready()
+
+
+class TesyReadyETASensor(TesySensor):
+    @property
+    def native_value(self):
+        """Return the estimated timestamp when water will be ready."""
+        return self.coordinator.get_ready_eta()
     
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:
-        """Return ESP32 discovery information as attributes."""
-        try:
-            if hasattr(self.coordinator._client, 'probe_esp32_info'):
-                discovery_info = self.coordinator._client.probe_esp32_info()
+        """Return ETA details as attributes."""
+        minutes = self.coordinator.get_minutes_to_ready()
+        if minutes is None:
+            return None
+            
+        return {
+            "minutes_remaining": minutes,
+            "seconds_remaining": minutes * 60 if minutes is not None else None
+        }
+
+
+class TesyCurrentStepSensor(TesySensor):
+    @property
+    def native_value(self):
+        """Return the current step or temperature value."""
+        return self.coordinator.get_current_step()
+
+
+class TesyTargetStepSensor(TesySensor):
+    @property
+    def native_value(self):
+        """Return the target step or temperature value."""
+        return self.coordinator.get_target_step()
+
+
+class TesyRequestedStepSensor(TesySensor):
+    @property
+    def native_value(self):
+        """Return the requested step or temperature value."""
+        return self.coordinator.get_requested_step()
+
+
+class TesyModeCodeSensor(TesySensor):
+    @property
+    def native_value(self):
+        """Return the numeric mode code."""
+        if ATTR_MODE not in self.coordinator.data:
+            return None
+        return int(self.coordinator.data[ATTR_MODE])
+
+
+class TesyModeTextSensor(TesySensor):
+    @property
+    def native_value(self):
+        """Return the text representation of the mode."""
+        return self.coordinator.get_mode_text()
+    
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Return mode information as attributes."""
+        if ATTR_MODE not in self.coordinator.data:
+            return None
+            
+        mode_code = self.coordinator.data[ATTR_MODE]
+        mode_map = {
+            "0": "Performance/Manual mode",
+            "1": "Program 1 (P1)",
+            "2": "Program 2 (P2)",
+            "3": "Program 3 (P3)",
+            "4": "ECO mode",
+            "5": "ECO Comfort (EC2)",
+            "6": "ECO Night (EC3)"
+        }
+        
+        return {
+            "mode_code": mode_code,
+            "description": mode_map.get(str(mode_code), "Unknown mode")
+        }
+
+
+class TesyDeviceTimeSensor(TesySensor):
+    @property
+    def native_value(self):
+        """Return the device's internal time."""
+        return self.coordinator.get_device_time()
+
+
+class TesyWarmupCounterSensor(TesySensor):
+    @property
+    def native_value(self):
+        """Return the device warmup counter."""
+        if "wup" in self.coordinator.data:
+            try:
+                return int(self.coordinator.data["wup"])
+            except (ValueError, TypeError):
+                return None
+        return None
+
+
+class TesyMaxStepSensor(TesySensor):
+    @property
+    def native_value(self):
+        """Return the maximum number of steps/showers."""
+        return self.coordinator.get_max_step()
+    
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Return information about the maximum step setting."""
+        max_step = self.coordinator.get_max_step()
+        if max_step is None:
+            return None
+            
+        return {
+            "max_value": max_step,
+            "description": "Maximum number of showers for BelliSlimo models, depends on device orientation and capacity"
+        }
+
+
+class TesyErrorCodeTextSensor(TesySensor):
+    @property
+    def native_value(self):
+        """Return the human-readable error message."""
+        return self.coordinator.get_error_text()
+    
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Return error code details as attributes."""
+        if ATTR_ERROR not in self.coordinator.data:
+            return None
+            
+        error_code = self.coordinator.data[ATTR_ERROR]
+        return {
+            "raw_code": error_code,
+            "is_error_active": error_code != "00"
+        }
+
+
+class TesyStatusSnapshotSensor(TesySensor):
+    @property
+    def native_value(self):
+        """Always return OK for the snapshot sensor."""
+        return "OK"
+    
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Return the full snapshot of device state as attributes."""
+        # List of important keys to include in the snapshot
+        key_fields = [
+            'tz', 'wsw', 'prfl', 'extr', 'id', 'date', 'wtstp', 'wup', 'hsw', 'tmpMX', 
+            'reset', 'err', 'tmpT', 'tmpR', 'mode', 'lck', 'bst', 'vac', 'pwr', 'ht', 
+            'psn', 'tmpC', 'cdt', 'PICTime', 'prgVac', 'wIP', 'wSSID', 'wdBm', 'MAC', 'api'
+        ]
+        
+        # Program schedule fields for each day
+        program_fields = []
+        for program in ['prgP1', 'prgP2', 'prgP3']:
+            for day in ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU']:
+                program_fields.append(f"{program}{day}")
                 
-                # Summarize findings for attributes (limit size)
-                attributes = {
-                    "total_endpoints_found": len(discovery_info.get("endpoints_discovered", [])),
-                    "system_info_available": bool(discovery_info.get("system_info")),
-                    "wifi_info_available": bool(discovery_info.get("wifi_info")),
-                    "debug_info_available": bool(discovery_info.get("debug_info")),
-                    "firmware_info_available": bool(discovery_info.get("firmware_info")),
-                }
+        # Combine all fields
+        all_fields = key_fields + program_fields
+        
+        # Create snapshot with available data
+        snapshot = {}
+        for field in all_fields:
+            if field in self.coordinator.data:
+                snapshot[field] = self.coordinator.data[field]
                 
-                # Add first few discovered endpoints
-                endpoints = discovery_info.get("endpoints_discovered", [])[:5]
-                for i, endpoint in enumerate(endpoints):
-                    attributes[f"endpoint_{i+1}"] = f"{endpoint['endpoint']} ({endpoint['status_code']})"
-                
-                # Add any system info found
-                if discovery_info.get("system_info"):
-                    system_info = discovery_info["system_info"]
-                    for key, value in list(system_info.items())[:3]:  # Limit to first 3 items
-                        if isinstance(value, (str, int, float, bool)):
-                            attributes[f"system_{key}"] = value
-                
-                return attributes
-            else:
-                return {"status": "Discovery not supported for this API version"}
-        except Exception as e:
-            return {"error": str(e)}
+        return snapshot

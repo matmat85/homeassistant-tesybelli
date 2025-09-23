@@ -97,14 +97,6 @@ ATTR_WIFI_SSID = "wSSID"
 ATTR_POWER_CALC = "pwcalc"
 ATTR_POWER_COUNTER_USER = "pwc_u"
 
-# ESP32 Discovery and Diagnostic Constants
-ATTR_ESP32_ENDPOINTS = "esp32_endpoints"
-ATTR_ESP32_SYSTEM_INFO = "esp32_system_info"
-ATTR_ESP32_WIFI_INFO = "esp32_wifi_info"
-ATTR_ESP32_FILESYSTEM = "esp32_filesystem"
-ATTR_ESP32_MEMORY = "esp32_memory"
-ATTR_ESP32_CHIP_INFO = "esp32_chip_info"
-
 # Program attributes for each day of the week
 ATTR_PROGRAM_P1_MONDAY = "prgP1MO"
 ATTR_PROGRAM_P1_TUESDAY = "prgP1TU"
@@ -129,6 +121,39 @@ ATTR_PROGRAM_P3_THURSDAY = "prgP3TH"
 ATTR_PROGRAM_P3_FRIDAY = "prgP3FR"
 ATTR_PROGRAM_P3_SATURDAY = "prgP3SA"
 ATTR_PROGRAM_P3_SUNDAY = "prgP3SU"
+
+# Mode mappings for display
+TESY_MODE_MAPPING = {
+    "0": "performance",
+    "1": "P1",
+    "2": "P2",
+    "3": "P3",
+    "4": "eco",
+    "5": "EC2",
+    "6": "EC3"
+}
+
+# Error code mappings
+TESY_ERROR_CODES = {
+    "00": "OK"
+    # Add other error codes as they are discovered
+}
+
+# Ready time calculation constants
+ATTR_MINUTES_TO_READY = "minutes_to_ready"
+ATTR_READY_ETA = "ready_eta"
+
+# Current/Target/Requested step sensors
+ATTR_CURRENT_STEP = "current_step"
+ATTR_TARGET_STEP = "target_step"
+ATTR_REQUESTED_STEP = "requested_step"
+
+# Device time and information sensors
+ATTR_DEVICE_TIME = "device_time"
+ATTR_WARMUP_COUNTER = "warmup_counter"
+ATTR_ERROR_TEXT = "error_text"
+ATTR_SNAPSHOT = "status_snapshot"
+ATTR_DIAGNOSTICS = "diagnostics"
 
 """
 Some devices have additional parameters:

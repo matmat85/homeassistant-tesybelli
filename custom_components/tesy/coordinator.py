@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import timedelta, datetime
 from typing import Any
 
 from homeassistant.core import HomeAssistant
@@ -88,72 +88,110 @@ class TesyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def get_config_power(self) -> int:
         return self._client._heater_power
 
-    async def async_discover_esp32_info(self) -> dict[str, Any]:
-        """Discover additional ESP32 information."""
-        if hasattr(self._client, "probe_esp32_info"):
-            return await self.hass.async_add_executor_job(self._client.probe_esp32_info)
-        else:
-            return {"error": "ESP32 discovery not supported for this API version"}
+    # Standard utility methods from the REST script
+    def get_minutes_to_ready(self) -> int | None:
+        """Get minutes until water is ready based on CDT value."""
+        if "cdt" in self.data:
+            try:
+                return int(self.data["cdt"])
+            except (ValueError, TypeError):
+                return None
+        return None
 
-    async def async_get_esp32_system_info(self) -> dict[str, Any]:
-        """Get ESP32 system information."""
-        if hasattr(self._client, "get_esp32_system_info"):
-            return await self.hass.async_add_executor_job(self._client.get_esp32_system_info)
-        else:
-            return {"error": "ESP32 system info not supported"}
+    def get_ready_eta(self) -> datetime | None:
+        """Calculate the timestamp when water will be ready."""
+        minutes = self.get_minutes_to_ready()
+        if minutes is not None and minutes > 0:
+            return datetime.now() + timedelta(minutes=minutes)
+        return None
+    
+    def get_current_step(self) -> int | None:
+        """Get current shower step for Bellislimo models or temperature for other models."""
+        if "tmpC" in self.data:
+            try:
+                return int(self.data["tmpC"])
+            except (ValueError, TypeError):
+                return None
+        return None
 
-    async def async_get_esp32_wifi_info(self) -> dict[str, Any]:
-        """Get ESP32 WiFi information."""
-        if hasattr(self._client, "get_esp32_wifi_info"):
-            return await self.hass.async_add_executor_job(self._client.get_esp32_wifi_info)
-        else:
-            return {"error": "ESP32 WiFi info not supported"}
+    def get_target_step(self) -> int | None:
+        """Get target shower step for Bellislimo models or target temperature for other models."""
+        if "tmpT" in self.data:
+            try:
+                return int(self.data["tmpT"])
+            except (ValueError, TypeError):
+                return None
+        return None
 
-    async def async_get_esp32_filesystem_info(self) -> dict[str, Any]:
-        """Get ESP32 filesystem information."""
-        if hasattr(self._client, "get_esp32_filesystem_info"):
-            return await self.hass.async_add_executor_job(self._client.get_esp32_filesystem_info)
-        else:
-            return {"error": "ESP32 filesystem info not supported"}
-
-    async def async_get_specific_endpoint(self, endpoint: str) -> dict[str, Any]:
-        """Get data from a specific endpoint."""
-        if hasattr(self._client, "get_specific_endpoint"):
-            return await self.hass.async_add_executor_job(self._client.get_specific_endpoint, endpoint)
-        else:
-            return {"error": "Specific endpoint access not supported"}
-
-    async def async_test_custom_endpoints(self, endpoints: list[str]) -> dict[str, Any]:
-        """Test custom endpoints."""
-        if hasattr(self._client, "test_custom_endpoints"):
-            return await self.hass.async_add_executor_job(self._client.test_custom_endpoints, endpoints)
-        else:
-            return {"error": "Custom endpoint testing not supported"}
-
-    async def async_scan_json_endpoints(self) -> dict[str, Any]:
-        """Scan for JSON endpoints."""
-        if hasattr(self._client, "scan_for_json_endpoints"):
-            return await self.hass.async_add_executor_job(self._client.scan_for_json_endpoints)
-        else:
-            return {"error": "JSON endpoint scanning not supported"}
-
-    async def async_get_esp32_chip_info(self) -> dict[str, Any]:
-        """Get ESP32 chip information."""
-        if hasattr(self._client, "get_esp32_chip_info"):
-            return await self.hass.async_add_executor_job(self._client.get_esp32_chip_info)
-        else:
-            return {"error": "ESP32 chip info not supported"}
-
-    async def async_get_esp32_performance_metrics(self) -> dict[str, Any]:
-        """Get ESP32 performance metrics."""
-        if hasattr(self._client, "get_esp32_performance_metrics"):
-            return await self.hass.async_add_executor_job(self._client.get_esp32_performance_metrics)
-        else:
-            return {"error": "ESP32 performance metrics not supported"}
-
-    async def async_get_esp32_network_details(self) -> dict[str, Any]:
-        """Get ESP32 network details."""
-        if hasattr(self._client, "get_esp32_network_details"):
-            return await self.hass.async_add_executor_job(self._client.get_esp32_network_details)
-        else:
-            return {"error": "ESP32 network details not supported"}
+    def get_requested_step(self) -> int | None:
+        """Get requested shower step/temperature."""
+        if "tmpR" in self.data:
+            try:
+                return int(self.data["tmpR"])
+            except (ValueError, TypeError):
+                return None
+        return None
+    
+    def get_max_step(self) -> int | None:
+        """Get maximum shower step value."""
+        if "tmpMX" in self.data:
+            try:
+                return int(self.data["tmpMX"])
+            except (ValueError, TypeError):
+                return None
+        return None
+    
+    def get_mode_text(self) -> str:
+        """Convert numeric mode to text representation."""
+        if "mode" not in self.data:
+            return "unknown"
+        
+        mode_map = {
+            "0": "performance",
+            "1": "P1", 
+            "2": "P2", 
+            "3": "P3",
+            "4": "eco", 
+            "5": "EC2", 
+            "6": "EC3"
+        }
+        
+        mode = str(self.data["mode"])
+        return mode_map.get(mode, "unknown")
+    
+    def get_device_time(self) -> datetime | None:
+        """Get the device's internal time."""
+        if "date" in self.data:
+            try:
+                # Try to parse the date string into a datetime object
+                # The format may need adjustment based on actual date format used
+                date_str = self.data["date"]
+                return datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+            except (ValueError, TypeError):
+                return None
+        return None
+    
+    def is_error_active(self) -> bool:
+        """Check if there's an active error based on error code."""
+        if "err" in self.data:
+            return self.data["err"] != "00"
+        return False
+    
+    def get_error_text(self) -> str:
+        """Convert error code to human-readable text."""
+        if "err" not in self.data:
+            return "Unknown"
+            
+        code = str(self.data["err"])
+        error_map = {"00": "OK"}
+        
+        return error_map.get(code, f"Unknown ({code})")
+    
+    def get_wifi_signal_strength(self) -> int | None:
+        """Get WiFi signal strength in dBm."""
+        if "wdBm" in self.data:
+            try:
+                return int(self.data["wdBm"])
+            except (ValueError, TypeError):
+                return None
+        return None
