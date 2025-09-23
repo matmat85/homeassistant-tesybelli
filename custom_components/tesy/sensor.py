@@ -899,7 +899,7 @@ class TesyReadyETASensor(TesySensor):
         """Return the estimated timestamp when water will be ready."""
         minutes_to_ready = int(self.coordinator.data.get("cdt", 0))
         if minutes_to_ready > 0:
-            return (datetime.now() + timedelta(minutes=minutes_to_ready)).isoformat()
+            return dt_util.utcnow() + timedelta(minutes=minutes_to_ready)
         return None
 
 

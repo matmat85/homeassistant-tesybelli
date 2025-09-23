@@ -185,7 +185,9 @@ class TesyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         try:
             date_str = self.data.get("date", "")
             if date_str:
-                return datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")
+                # Parse the naive datetime and make it timezone-aware (assuming UTC)
+                naive_dt = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")
+                return dt_util.as_utc(naive_dt)
         except (ValueError, TypeError):
             _LOGGER.warning("Invalid date value: %s", self.data.get("date"))
         return None
