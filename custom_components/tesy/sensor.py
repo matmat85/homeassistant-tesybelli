@@ -24,6 +24,7 @@ from homeassistant.const import (
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.util import dt as dt_util
 
 from .entity import TesyEntity
 from .const import (
@@ -1160,9 +1161,7 @@ class TesyLastUpdateSensor(TesySensor):
     @property
     def native_value(self):
         """Return the timestamp of the last successful update."""
-        if self.coordinator.last_successful_update:
-            return self.coordinator.last_successful_update.isoformat()
-        return None
+        return self.coordinator.last_successful_update
     
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:
@@ -1171,7 +1170,7 @@ class TesyLastUpdateSensor(TesySensor):
         if last_update is None:
             return {"status": "No successful updates yet"}
         
-        now = datetime.now()
+        now = dt_util.utcnow()
         time_since_update = now - last_update
         
         return {

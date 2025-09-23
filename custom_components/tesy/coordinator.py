@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from datetime import timedelta, datetime
+from datetime import timedelta, datetime, timezone
 from typing import Any
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.util import dt as dt_util
 
 from .tesy import Tesy
 from .tesy_oldapi import TesyOldApi
@@ -62,8 +63,8 @@ class TesyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         try:
             data = await self.hass.async_add_executor_job(self._get_data)
             _LOGGER.debug("Fetched data: %s", data)
-            # Track successful update time
-            self._last_successful_update = datetime.now()
+            # Track successful update time with timezone info
+            self._last_successful_update = dt_util.utcnow()
             return data
         except Exception as e:
             _LOGGER.error("Failed to fetch data: %s", e)
