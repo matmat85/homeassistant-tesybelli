@@ -4,7 +4,6 @@ from __future__ import annotations
 import base64
 import json
 from urllib.parse import unquote
-from typing import Any
 
 from homeassistant.components.sensor import (
     SensorEntity,
@@ -40,21 +39,6 @@ from .const import (
     ATTR_CHILD_LOCK,
     ATTR_VACATION,
     ATTR_POSITION,
-    ATTR_MODE,
-    ATTR_TARGET_TEMP,
-    ATTR_CURRENT_TARGET_TEMP,
-    ATTR_IS_HEATING,
-    ATTR_POWER,
-    ATTR_BOOST,
-    ATTR_DATE,
-    ATTR_MAC,
-    ATTR_SOFTWARE,
-    ATTR_DEVICE_ID,
-    ATTR_TIMEZONE,
-    ATTR_PROFILE,
-    ATTR_MAX_SHOWERS,
-    ATTR_RESET,
-    ATTR_PROGRAM_VACATION,
 )
 from .coordinator import TesyCoordinator
 
@@ -255,79 +239,6 @@ async def async_setup_entry(
             None,
             None,
         ),
-        TesyETASensor(
-            hass,
-            coordinator,
-            entry,
-            SensorEntityDescription(
-                key="ready_eta",
-                name="Ready ETA",
-                device_class=SensorDeviceClass.TIMESTAMP,
-                icon="mdi:clock-end",
-            ),
-            None,
-            None,
-        ),
-        TesyModeTextSensor(
-            hass,
-            coordinator,
-            entry,
-            SensorEntityDescription(
-                key="mode_text",
-                name="Operation Mode",
-                icon="mdi:water-boiler",
-            ),
-            None,
-            None,
-        ),
-        TesyErrorTextSensor(
-            hass,
-            coordinator,
-            entry,
-            SensorEntityDescription(
-                key="error_text",
-                name="Error Description",
-                icon="mdi:alert-circle-outline",
-            ),
-            None,
-            None,
-        ),
-        TesyStatusSnapshotSensor(
-            hass,
-            coordinator,
-            entry,
-            SensorEntityDescription(
-                key="status_snapshot",
-                name="Full Status Snapshot",
-                icon="mdi:file-code-outline",
-            ),
-            None,
-            None,
-        ),
-        TesyDiagnosticSensor(
-            hass,
-            coordinator,
-            entry,
-            SensorEntityDescription(
-                key="diagnostic",
-                name="API Response",
-                icon="mdi:code-json",
-            ),
-            None,
-            None,
-        ),
-        TesyESP32DiscoverySensor(
-            hass,
-            coordinator,
-            entry,
-            SensorEntityDescription(
-                key="esp32_discovery",
-                name="ESP32 Discovery",
-                icon="mdi:chip",
-            ),
-            None,
-            None,
-        ),
     ]
     
     async_add_entities(sensors)
@@ -351,7 +262,7 @@ class TesySensor(TesyEntity, SensorEntity):
         """Initialize the sensor."""
         super().__init__(hass, coordinator, entry, description)
 
-        self.entity_description = description
+        self.description: description
         self._attr_name = description.name
 
         if description.device_class is not None:
@@ -411,7 +322,7 @@ class TesyTemperatureSensor(TesySensor):
         """Return the state of the sensor."""
         if ATTR_CURRENT_TEMP not in self.coordinator.data:
             return None
-        return float(self.coordinator.data[ATTR_CURRENT_TEMP]) 
+        return float(self.coordinator.data[ATTR_CURRENT_TEMP])
 
 
 class TesyRSSISensor(TesySensor):
@@ -420,7 +331,7 @@ class TesyRSSISensor(TesySensor):
         """Return the WiFi signal strength."""
         if ATTR_RSSI not in self.coordinator.data:
             return None
-        return int(self.coordinator.data[ATTR_RSSI]) 
+        return int(self.coordinator.data[ATTR_RSSI])
 
 
 class TesyUptimeSensor(TesySensor):
@@ -429,7 +340,7 @@ class TesyUptimeSensor(TesySensor):
         """Return the device uptime in seconds."""
         if ATTR_UPTIME not in self.coordinator.data:
             return None
-        return int(self.coordinator.data[ATTR_UPTIME]) 
+        return int(self.coordinator.data[ATTR_UPTIME])
 
 
 class TesyCountdownSensor(TesySensor):
@@ -438,7 +349,7 @@ class TesyCountdownSensor(TesySensor):
         """Return the countdown timer value in minutes until target temperature is reached."""
         if ATTR_COUNTDOWN not in self.coordinator.data:
             return None
-        return int(self.coordinator.data[ATTR_COUNTDOWN]) 
+        return int(self.coordinator.data[ATTR_COUNTDOWN])
 
     @property
     def extra_state_attributes(self) -> dict[str, str] | None:
@@ -470,7 +381,7 @@ class TesyHardwareVersionSensor(TesySensor):
         """Return the hardware version."""
         if ATTR_HARDWARE_VERSION not in self.coordinator.data:
             return None
-        return self.coordinator.data[ATTR_HARDWARE_VERSION] 
+        return self.coordinator.data[ATTR_HARDWARE_VERSION]
 
 
 class TesyWiFiIPSensor(TesySensor):
@@ -479,7 +390,7 @@ class TesyWiFiIPSensor(TesySensor):
         """Return the WiFi IP address."""
         if ATTR_WIFI_IP not in self.coordinator.data:
             return None
-        return self.coordinator.data[ATTR_WIFI_IP] 
+        return self.coordinator.data[ATTR_WIFI_IP]
 
 
 class TesyWiFiSSIDSensor(TesySensor):
@@ -488,7 +399,7 @@ class TesyWiFiSSIDSensor(TesySensor):
         """Return the WiFi SSID."""
         if ATTR_WIFI_SSID not in self.coordinator.data:
             return None
-        return self.coordinator.data[ATTR_WIFI_SSID] 
+        return self.coordinator.data[ATTR_WIFI_SSID]
 
 
 class TesyDeviceNameSensor(TesySensor):
@@ -637,7 +548,6 @@ class TesyFirmwareBuildSensor(TesySensor):
                         # Try to find ESP-IDF version
                         if 'esp_idf_version' in endpoint_data:
                             return f"ESP-IDF {endpoint_data['esp_idf_version']}"
-
             return "Unknown"
         except:
             return "Unknown"
@@ -659,185 +569,6 @@ class TesyFirmwareBuildSensor(TesySensor):
                 return firmware_attrs if firmware_attrs else None
         except:
             return None
-
-
-class TesyETASensor(TesySensor):
-    @property
-    def native_value(self):
-        """Return the ETA when target temperature will be reached."""
-        try:
-            countdown_minutes = int(self.coordinator.data.get(ATTR_COUNTDOWN, 0))
-            if countdown_minutes > 0:
-                from datetime import datetime, timedelta
-                eta = datetime.now() + timedelta(minutes=countdown_minutes)
-                return eta.isoformat()
-            return None
-        except:
-            return None
-
-    @property
-    def extra_state_attributes(self) -> dict[str, Any] | None:
-        """Return ETA information as attributes."""
-        try:
-            countdown_minutes = int(self.coordinator.data.get(ATTR_COUNTDOWN, 0))
-            if countdown_minutes > 0:
-                from datetime import datetime, timedelta
-                eta = datetime.now() + timedelta(minutes=countdown_minutes)
-                return {
-                    "countdown_minutes": countdown_minutes,
-                    "eta_local": eta.strftime("%Y-%m-%d %H:%M:%S"),
-                    "eta_relative": f"in {countdown_minutes} minutes"
-                }
-            return None
-        except:
-            return None
-
-
-class TesyModeTextSensor(TesySensor):
-    @property
-    def native_value(self):
-        """Return human-readable operation mode."""
-        mode_code = self.coordinator.data.get(ATTR_MODE, "0")
-        
-        mode_map = {
-            "0": "Performance",
-            "1": "P1",
-            "2": "P2", 
-            "3": "P3",
-            "4": "ECO",
-            "5": "ECO Comfort",
-            "6": "ECO Night"
-        }
-        
-        return mode_map.get(str(mode_code), f"Unknown ({mode_code})")
-
-    @property
-    def extra_state_attributes(self) -> dict[str, Any] | None:
-        """Return mode information as attributes."""
-        mode_code = self.coordinator.data.get(ATTR_MODE, "0")
-        power_state = self.coordinator.data.get(ATTR_POWER, "0")
-        
-        mode_descriptions = {
-            "0": "Manual temperature control",
-            "1": "Program 1 - Heat in advance for scheduled time",
-            "2": "Program 2 - Heat in advance for scheduled time",
-            "3": "Program 3 - Thermostat mode",
-            "4": "Energy saving mode",
-            "5": "ECO Comfort mode",
-            "6": "ECO Night mode"
-        }
-        
-        return {
-            "mode_code": mode_code,
-            "description": mode_descriptions.get(str(mode_code), "Unknown mode"),
-            "powered_on": power_state == "1"
-        }
-
-
-class TesyErrorTextSensor(TesySensor):
-    @property
-    def native_value(self):
-        """Return human-readable error description."""
-        error_code = self.coordinator.data.get(ATTR_ERROR, "00")
-        
-        # Error code mapping - extend as more codes are discovered
-        error_map = {
-            "00": "No Error",
-            "01": "Temperature Sensor Error",
-            "02": "Heating Element Error", 
-            "03": "Communication Error",
-            "04": "Power Supply Error",
-            "05": "Memory Error",
-            "06": "Network Error",
-            "07": "Configuration Error",
-            "08": "Hardware Error",
-            "09": "Software Error",
-            "10": "Safety Error"
-        }
-        
-        return error_map.get(str(error_code), f"Unknown Error ({error_code})")
-
-    @property
-    def extra_state_attributes(self) -> dict[str, Any] | None:
-        """Return error information as attributes."""
-        error_code = self.coordinator.data.get(ATTR_ERROR, "00")
-        
-        return {
-            "error_code": error_code,
-            "has_error": error_code != "00",
-            "severity": "critical" if error_code != "00" else "none"
-        }
-
-
-class TesyStatusSnapshotSensor(TesySensor):
-    @property
-    def native_value(self):
-        """Return overall status."""
-        api_status = self.coordinator.data.get("api", "Unknown")
-        return "OK" if api_status == "OK" else "Error"
-
-    @property
-    def extra_state_attributes(self) -> dict[str, Any] | None:
-        """Return full device status as a JSON snapshot."""
-        # Core operational data
-        snapshot = {
-            # Temperature and heating
-            "temperature": self.coordinator.data.get(ATTR_CURRENT_TEMP),
-            "target_temperature": self.coordinator.data.get(ATTR_TARGET_TEMP),
-            "controller_target": self.coordinator.data.get(ATTR_CURRENT_TARGET_TEMP),
-            "heating_active": self.coordinator.data.get(ATTR_IS_HEATING) == "1",
-            
-            # Mode and control
-            "mode_code": self.coordinator.data.get(ATTR_MODE),
-            "power_on": self.coordinator.data.get(ATTR_POWER) == "1",
-            "boost_active": self.coordinator.data.get(ATTR_BOOST) == "1",
-            
-            # Status flags
-            "child_lock": self.coordinator.data.get(ATTR_CHILD_LOCK) == "1",
-            "vacation_mode": self.coordinator.data.get(ATTR_VACATION) == "1",
-            "error_code": self.coordinator.data.get(ATTR_ERROR),
-            
-            # Timing
-            "countdown_minutes": self.coordinator.data.get(ATTR_COUNTDOWN),
-            "device_time": self.coordinator.data.get(ATTR_DATE),
-            "uptime_seconds": self.coordinator.data.get(ATTR_UPTIME),
-            
-            # Network
-            "wifi_ip": self.coordinator.data.get(ATTR_WIFI_IP),
-            "wifi_ssid": self.coordinator.data.get(ATTR_WIFI_SSID),
-            "wifi_rssi": self.coordinator.data.get(ATTR_RSSI),
-            
-            # Device info
-            "device_id": self.coordinator.data.get(ATTR_DEVICE_ID),
-            "mac_address": self.coordinator.data.get(ATTR_MAC),
-            "hardware_version": self.coordinator.data.get(ATTR_HARDWARE_VERSION),
-            "software_version": self.coordinator.data.get(ATTR_SOFTWARE),
-            "position": self.coordinator.data.get(ATTR_POSITION),
-            "max_temperature": self.coordinator.data.get(ATTR_MAX_SHOWERS),
-            
-            # Advanced data
-            "timezone": self.coordinator.data.get(ATTR_TIMEZONE),
-            "profile": self.coordinator.data.get(ATTR_PROFILE),
-            "energy_counter": self.coordinator.data.get(ATTR_LONG_COUNTER),
-            "reset_flag": self.coordinator.data.get(ATTR_RESET),
-        }
-        
-        # Add programs (P1, P2, P3 for each day)
-        programs = {}
-        for mode in ["P1", "P2", "P3"]:
-            for day in ["MO", "TU", "WE", "TH", "FR", "SA", "SU"]:
-                key = f"prg{mode}{day}"
-                if key in self.coordinator.data:
-                    programs[f"{mode.lower()}_{day.lower()}"] = self.coordinator.data[key]
-        
-        if programs:
-            snapshot["programs"] = programs
-        
-        # Add vacation program if available
-        if ATTR_PROGRAM_VACATION in self.coordinator.data:
-            snapshot["vacation_program"] = self.coordinator.data[ATTR_PROGRAM_VACATION]
-        
-        return snapshot
 
 
 class TesyDiagnosticSensor(TesySensor):
