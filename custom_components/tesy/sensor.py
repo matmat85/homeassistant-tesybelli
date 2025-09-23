@@ -5,7 +5,7 @@ import base64
 import json
 from urllib.parse import unquote
 from typing import Any
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from homeassistant.components.sensor import (
     SensorEntity,
