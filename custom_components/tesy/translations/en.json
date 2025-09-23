@@ -16,6 +16,17 @@
       "unknown": "Unknown error"
     }
   },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Tesy Options",
+        "description": "Configure polling settings for your Tesy water heater.\n\nCurrent interval: {current_interval} seconds\nAllowed range: {min_interval} - {max_interval} seconds",
+        "data": {
+          "update_interval": "Update Interval (seconds)"
+        }
+      }
+    }
+  },
   "entity": {
     "water_heater": {
       "heater": {

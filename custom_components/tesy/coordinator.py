@@ -15,6 +15,8 @@ from .const import (
     DOMAIN,
     UPDATE_INTERVAL,
     USE_OLD_API,
+    CONF_UPDATE_INTERVAL,
+    DEFAULT_UPDATE_INTERVAL,
 )
 import logging
 
@@ -31,11 +33,17 @@ class TesyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         else:
             self._client = Tesy(data)
 
+        # Use configurable update interval, fallback to default
+        update_interval_seconds = data.get(CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL)
+        
+        self._last_successful_update = None
+        self._config_data = data
+
         super().__init__(
             hass,
             _LOGGER,
             name=DOMAIN,
-            update_interval=timedelta(seconds=UPDATE_INTERVAL),
+            update_interval=timedelta(seconds=update_interval_seconds),
         )
 
     def _validate(self) -> None:
@@ -54,10 +62,28 @@ class TesyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         try:
             data = await self.hass.async_add_executor_job(self._get_data)
             _LOGGER.debug("Fetched data: %s", data)
+            # Track successful update time
+            self._last_successful_update = datetime.now()
             return data
         except Exception as e:
             _LOGGER.error("Failed to fetch data: %s", e)
             raise UpdateFailed("Failed to fetch data.")
+    
+    @property
+    def last_successful_update(self) -> datetime | None:
+        """Return the timestamp of the last successful update."""
+        return self._last_successful_update
+    
+    @property 
+    def update_interval_seconds(self) -> int:
+        """Return the current update interval in seconds."""
+        return int(self.update_interval.total_seconds())
+
+    def update_interval_setting(self, new_interval: int) -> None:
+        """Update the polling interval."""
+        self.update_interval = timedelta(seconds=new_interval)
+        self._config_data[CONF_UPDATE_INTERVAL] = new_interval
+        _LOGGER.info("Update interval changed to %s seconds", new_interval)
 
     async def async_set_target_temperature(self, val: int) -> None:
         """Set target temperature for Tesy component."""

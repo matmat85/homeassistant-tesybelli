@@ -3,9 +3,10 @@
 from __future__ import annotations
 import base64
 import json
+import logging
 from urllib.parse import unquote
 from typing import Any
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from homeassistant.components.sensor import (
     SensorEntity,
@@ -54,6 +55,8 @@ from .const import (
     ATTR_DATE,
 )
 from .coordinator import TesyCoordinator
+
+_LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(
@@ -485,6 +488,35 @@ async def async_setup_entry(
                 key="program_vacation",
                 name="Program Vacation",
                 icon="mdi:calendar",
+            ),
+            None,
+            None,
+        ),
+        # Add polling interval and last update sensors
+        TesyPollingIntervalSensor(
+            hass,
+            coordinator,
+            entry,
+            SensorEntityDescription(
+                key="polling_interval",
+                name="Polling Interval",
+                device_class=SensorDeviceClass.DURATION,
+                state_class=SensorStateClass.MEASUREMENT,
+                native_unit_of_measurement=UnitOfTime.SECONDS,
+                icon="mdi:timer-cog-outline",
+            ),
+            None,
+            None,
+        ),
+        TesyLastUpdateSensor(
+            hass,
+            coordinator,
+            entry,
+            SensorEntityDescription(
+                key="last_update",
+                name="Last Successful Update",
+                device_class=SensorDeviceClass.TIMESTAMP,
+                icon="mdi:update",
             ),
             None,
             None,
@@ -1105,3 +1137,47 @@ class TesyProgramVacationSensor(TesySensor):
     def native_value(self):
         """Return the program vacation data."""
         return self.coordinator.data.get("prgVac", None)
+
+
+class TesyPollingIntervalSensor(TesySensor):
+    @property
+    def native_value(self):
+        """Return the current polling interval in seconds."""
+        return self.coordinator.update_interval_seconds
+    
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Return polling interval information as attributes."""
+        return {
+            "interval_seconds": self.coordinator.update_interval_seconds,
+            "interval_minutes": round(self.coordinator.update_interval_seconds / 60, 1),
+            "description": "How often the integration polls the device for updates",
+            "configurable": "This can be changed in the integration settings"
+        }
+
+
+class TesyLastUpdateSensor(TesySensor):
+    @property
+    def native_value(self):
+        """Return the timestamp of the last successful update."""
+        if self.coordinator.last_successful_update:
+            return self.coordinator.last_successful_update.isoformat()
+        return None
+    
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Return last update information as attributes."""
+        last_update = self.coordinator.last_successful_update
+        if last_update is None:
+            return {"status": "No successful updates yet"}
+        
+        now = datetime.now()
+        time_since_update = now - last_update
+        
+        return {
+            "last_update_datetime": last_update.strftime("%Y-%m-%d %H:%M:%S"),
+            "seconds_since_update": int(time_since_update.total_seconds()),
+            "minutes_since_update": round(time_since_update.total_seconds() / 60, 1),
+            "update_interval_seconds": self.coordinator.update_interval_seconds,
+            "status": "Connected" if time_since_update.total_seconds() < (self.coordinator.update_interval_seconds * 2) else "Delayed"
+        }

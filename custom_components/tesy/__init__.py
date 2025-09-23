@@ -14,6 +14,8 @@ from homeassistant.helpers import config_validation as cv
 from .coordinator import TesyCoordinator
 from .const import (
     DOMAIN,
+    CONF_UPDATE_INTERVAL,
+    DEFAULT_UPDATE_INTERVAL,
 )
 
 PLATFORMS: list[Platform] = [
@@ -32,8 +34,17 @@ DISCOVER_ESP32_SCHEMA = vol.Schema({
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Tesy from a config entry."""
+    # Merge config data with options, options take precedence
+    config_data = dict(entry.data)
+    if entry.options:
+        config_data.update(entry.options)
+    
+    # Ensure update interval is set
+    if CONF_UPDATE_INTERVAL not in config_data:
+        config_data[CONF_UPDATE_INTERVAL] = DEFAULT_UPDATE_INTERVAL
+
     coordinator = TesyCoordinator(
-        entry.data,
+        config_data,
         hass,
     )
 
@@ -45,6 +56,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await coordinator.async_config_entry_first_refresh()
 
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
+
+    # Set up update listener for options changes
+    entry.async_on_unload(entry.add_update_listener(update_listener))
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
@@ -147,6 +161,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
 
     return True
+
+
+async def update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Handle options update."""
+    await hass.config_entries.async_reload(entry.entry_id)
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

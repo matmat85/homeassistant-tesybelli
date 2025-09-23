@@ -5,6 +5,12 @@ from homeassistant.const import CONF_IP_ADDRESS
 DOMAIN = "tesytest"
 HTTP_TIMEOUT = 15
 UPDATE_INTERVAL = 30
+DEFAULT_UPDATE_INTERVAL = 30
+MIN_UPDATE_INTERVAL = 10
+MAX_UPDATE_INTERVAL = 300
+
+# Configuration keys
+CONF_UPDATE_INTERVAL = "update_interval"
 
 IP_ADDRESS = CONF_IP_ADDRESS
 HEATER_POWER = "heater_power"
