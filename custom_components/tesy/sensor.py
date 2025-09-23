@@ -4,6 +4,7 @@ from __future__ import annotations
 import base64
 import json
 from urllib.parse import unquote
+from typing import Any
 
 from homeassistant.components.sensor import (
     SensorEntity,
@@ -39,6 +40,21 @@ from .const import (
     ATTR_CHILD_LOCK,
     ATTR_VACATION,
     ATTR_POSITION,
+    ATTR_MODE,
+    ATTR_TARGET_TEMP,
+    ATTR_CURRENT_TARGET_TEMP,
+    ATTR_IS_HEATING,
+    ATTR_POWER,
+    ATTR_BOOST,
+    ATTR_DATE,
+    ATTR_MAC,
+    ATTR_SOFTWARE,
+    ATTR_DEVICE_ID,
+    ATTR_TIMEZONE,
+    ATTR_PROFILE,
+    ATTR_MAX_SHOWERS,
+    ATTR_RESET,
+    ATTR_PROGRAM_VACATION,
 )
 from .coordinator import TesyCoordinator
 
@@ -288,6 +304,30 @@ async def async_setup_entry(
             None,
             None,
         ),
+        TesyDiagnosticSensor(
+            hass,
+            coordinator,
+            entry,
+            SensorEntityDescription(
+                key="diagnostic",
+                name="API Response",
+                icon="mdi:code-json",
+            ),
+            None,
+            None,
+        ),
+        TesyESP32DiscoverySensor(
+            hass,
+            coordinator,
+            entry,
+            SensorEntityDescription(
+                key="esp32_discovery",
+                name="ESP32 Discovery",
+                icon="mdi:chip",
+            ),
+            None,
+            None,
+        ),
     ]
     
     async_add_entities(sensors)
@@ -311,7 +351,7 @@ class TesySensor(TesyEntity, SensorEntity):
         """Initialize the sensor."""
         super().__init__(hass, coordinator, entry, description)
 
-        self.description: description
+        self.entity_description = description
         self._attr_name = description.name
 
         if description.device_class is not None:
@@ -371,7 +411,7 @@ class TesyTemperatureSensor(TesySensor):
         """Return the state of the sensor."""
         if ATTR_CURRENT_TEMP not in self.coordinator.data:
             return None
-        return float(self.coordinator.data[ATTR_CURRENT_TEMP])
+        return float(self.coordinator.data[ATTR_CURRENT_TEMP]) 
 
 
 class TesyRSSISensor(TesySensor):
@@ -380,7 +420,7 @@ class TesyRSSISensor(TesySensor):
         """Return the WiFi signal strength."""
         if ATTR_RSSI not in self.coordinator.data:
             return None
-        return int(self.coordinator.data[ATTR_RSSI])
+        return int(self.coordinator.data[ATTR_RSSI]) 
 
 
 class TesyUptimeSensor(TesySensor):
@@ -389,7 +429,7 @@ class TesyUptimeSensor(TesySensor):
         """Return the device uptime in seconds."""
         if ATTR_UPTIME not in self.coordinator.data:
             return None
-        return int(self.coordinator.data[ATTR_UPTIME])
+        return int(self.coordinator.data[ATTR_UPTIME]) 
 
 
 class TesyCountdownSensor(TesySensor):
@@ -398,7 +438,7 @@ class TesyCountdownSensor(TesySensor):
         """Return the countdown timer value in minutes until target temperature is reached."""
         if ATTR_COUNTDOWN not in self.coordinator.data:
             return None
-        return int(self.coordinator.data[ATTR_COUNTDOWN])
+        return int(self.coordinator.data[ATTR_COUNTDOWN]) 
 
     @property
     def extra_state_attributes(self) -> dict[str, str] | None:
@@ -430,7 +470,7 @@ class TesyHardwareVersionSensor(TesySensor):
         """Return the hardware version."""
         if ATTR_HARDWARE_VERSION not in self.coordinator.data:
             return None
-        return self.coordinator.data[ATTR_HARDWARE_VERSION]
+        return self.coordinator.data[ATTR_HARDWARE_VERSION] 
 
 
 class TesyWiFiIPSensor(TesySensor):
@@ -439,7 +479,7 @@ class TesyWiFiIPSensor(TesySensor):
         """Return the WiFi IP address."""
         if ATTR_WIFI_IP not in self.coordinator.data:
             return None
-        return self.coordinator.data[ATTR_WIFI_IP]
+        return self.coordinator.data[ATTR_WIFI_IP] 
 
 
 class TesyWiFiSSIDSensor(TesySensor):
@@ -448,7 +488,7 @@ class TesyWiFiSSIDSensor(TesySensor):
         """Return the WiFi SSID."""
         if ATTR_WIFI_SSID not in self.coordinator.data:
             return None
-        return self.coordinator.data[ATTR_WIFI_SSID]
+        return self.coordinator.data[ATTR_WIFI_SSID] 
 
 
 class TesyDeviceNameSensor(TesySensor):
@@ -597,6 +637,7 @@ class TesyFirmwareBuildSensor(TesySensor):
                         # Try to find ESP-IDF version
                         if 'esp_idf_version' in endpoint_data:
                             return f"ESP-IDF {endpoint_data['esp_idf_version']}"
+
             return "Unknown"
         except:
             return "Unknown"
