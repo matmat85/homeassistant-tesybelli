@@ -775,21 +775,33 @@ class TesyCurrentStepSensor(TesySensor):
     @property
     def native_value(self):
         """Return the current step or temperature value."""
-        return self.coordinator.get_current_step()
+        # Use the new mapped entity for current step
+        current_step = self.hass.states.get("sensor.tesy_current_step_mapped")
+        if current_step is None or current_step.state in ["unknown", "unavailable", ""]:
+            return None
+        return int(current_step.state)
 
 
 class TesyTargetStepSensor(TesySensor):
     @property
     def native_value(self):
         """Return the target step or temperature value."""
-        return self.coordinator.get_target_step()
+        # Use the new mapped entity for target step
+        target_step = self.hass.states.get("sensor.tesy_target_step_mapped")
+        if target_step is None or target_step.state in ["unknown", "unavailable", ""]:
+            return None
+        return int(target_step.state)
 
 
 class TesyRequestedStepSensor(TesySensor):
     @property
     def native_value(self):
         """Return the requested step or temperature value."""
-        return self.coordinator.get_requested_step()
+        # Use the new mapped entity for requested step
+        requested_step = self.hass.states.get("sensor.tesy_requested_step_mapped")
+        if requested_step is None or requested_step.state in ["unknown", "unavailable", ""]:
+            return None
+        return int(requested_step.state)
 
 
 class TesyModeCodeSensor(TesySensor):
@@ -805,15 +817,19 @@ class TesyModeTextSensor(TesySensor):
     @property
     def native_value(self):
         """Return the text representation of the mode."""
-        return self.coordinator.get_mode_text()
-    
+        # Use the new mapped entity for mode
+        mode = self.hass.states.get("sensor.tesy_mode_mapped")
+        if mode is None or mode.state in ["unknown", "unavailable", ""]:
+            return None
+        return mode.state
+
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:
         """Return mode information as attributes."""
-        if ATTR_MODE not in self.coordinator.data:
+        mode = self.hass.states.get("sensor.tesy_mode_mapped")
+        if mode is None or mode.state in ["unknown", "unavailable", ""]:
             return None
-            
-        mode_code = self.coordinator.data[ATTR_MODE]
+
         mode_map = {
             "0": "Performance/Manual mode",
             "1": "Program 1 (P1)",
@@ -823,10 +839,10 @@ class TesyModeTextSensor(TesySensor):
             "5": "ECO Comfort (EC2)",
             "6": "ECO Night (EC3)"
         }
-        
+
         return {
-            "mode_code": mode_code,
-            "description": mode_map.get(str(mode_code), "Unknown mode")
+            "mode_code": mode.state,
+            "description": mode_map.get(mode.state, "Unknown mode")
         }
 
 
