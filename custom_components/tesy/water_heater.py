@@ -1,6 +1,7 @@
 """Tesy water heater component."""
 
 from typing import Any
+import logging
 from custom_components.tesy.coordinator import TesyCoordinator
 
 from homeassistant.components.water_heater import (
@@ -46,6 +47,8 @@ from .const import (
 )
 
 from .entity import TesyEntity
+
+_LOGGER = logging.getLogger(__name__)
 
 OPERATION_LIST = [
     STATE_OFF,
@@ -123,10 +126,26 @@ class TesyWaterHeater(TesyEntity, WaterHeaterEntity):
                 ]
                 == True
             ):
-                tmp_max = self.coordinator.data[ATTR_MAX_SHOWERS]
-                self._attr_max_temp = (
-                    int(tmp_max) if tmp_max.isdecimal() else self._attr_max_temp
-                )
+                if ATTR_MAX_SHOWERS in self.coordinator.data:
+                    tmp_max = self.coordinator.data[ATTR_MAX_SHOWERS]
+                    _LOGGER.debug("tmpMX value from device: %s (type: %s)", tmp_max, type(tmp_max))
+                    try:
+                        # Handle tmpMX being either string or integer
+                        if tmp_max is not None:
+                            self._attr_max_temp = int(tmp_max)
+                            _LOGGER.debug("Set max_temp to: %s for shower-based device", self._attr_max_temp)
+                    except (ValueError, TypeError) as e:
+                        # If conversion fails, keep the default from device type
+                        _LOGGER.warning("Failed to convert tmpMX value '%s' to integer: %s. Using default: %s", 
+                                       tmp_max, e, self._attr_max_temp)
+                else:
+                    _LOGGER.debug("tmpMX not found in device data for shower-based device. Using default: %s", 
+                                 self._attr_max_temp)
+        _LOGGER.debug(
+            "Initialized TesyWaterHeater: min_temp=%s, max_temp=%s",
+            self._attr_min_temp,
+            self._attr_max_temp,
+        )
 
     @property
     def current_temperature(self):
