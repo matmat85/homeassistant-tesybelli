@@ -5,7 +5,7 @@ import base64
 import json
 from urllib.parse import unquote
 from typing import Any
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from homeassistant.components.sensor import (
     SensorEntity,
@@ -381,6 +381,114 @@ async def async_setup_entry(
             None,
             None,
         ),
+        TesyProfileSensor(
+            hass,
+            coordinator,
+            entry,
+            SensorEntityDescription(
+                key="profile",
+                name="User Profile",
+                icon="mdi:account",
+            },
+            None,
+            None,
+        ),
+        TesyTimestampSensor(
+            hass,
+            coordinator,
+            entry,
+            SensorEntityDescription(
+                key="timestamp",
+                name="Timestamp",
+                icon="mdi:clock",
+            ),
+            None,
+            None,
+        ),
+        TesyMaxTemperatureSensor(
+            hass,
+            coordinator,
+            entry,
+            SensorEntityDescription(
+                key="max_temperature",
+                name="Maximum Temperature",
+                icon="mdi:thermometer-high",
+            ),
+            None,
+            None,
+        ),
+        TesyLockStatusSensor(
+            hass,
+            coordinator,
+            entry,
+            SensorEntityDescription(
+                key="lock_status",
+                name="Lock Status",
+                icon="mdi:lock",
+            ),
+            None,
+            None,
+        ),
+        TesyBoostStatusSensor(
+            hass,
+            coordinator,
+            entry,
+            SensorEntityDescription(
+                key="boost_status",
+                name="Boost Status",
+                icon="mdi:flash",
+            ),
+            None,
+            None,
+        ),
+        TesyVacationModeSensor(
+            hass,
+            coordinator,
+            entry,
+            SensorEntityDescription(
+                key="vacation_mode",
+                name="Vacation Mode",
+                icon="mdi:beach",
+            ),
+            None,
+            None,
+        ),
+        TesyPowerStatusSensor(
+            hass,
+            coordinator,
+            entry,
+            SensorEntityDescription(
+                key="power_status",
+                name="Power Status",
+                icon="mdi:power",
+            ),
+            None,
+            None,
+        ),
+        TesyHeatingStatusSensor(
+            hass,
+            coordinator,
+            entry,
+            SensorEntityDescription(
+                key="heating_status",
+                name="Heating Status",
+                icon="mdi:fire",
+            ),
+            None,
+            None,
+        ),
+        TesyProgramVacationSensor(
+            hass,
+            coordinator,
+            entry,
+            SensorEntityDescription(
+                key="program_vacation",
+                name="Program Vacation",
+                icon="mdi:calendar",
+            ),
+            None,
+            None,
+        ),
     ]
     
     async_add_entities(sensors)
@@ -749,71 +857,81 @@ class TesyMinutesToReadySensor(TesySensor):
     @property
     def native_value(self):
         """Return the minutes until ready value."""
-        return self.coordinator.get_minutes_to_ready()
+        return int(self.coordinator.data.get("cdt", 0))
 
 
 class TesyReadyETASensor(TesySensor):
     @property
     def native_value(self):
         """Return the estimated timestamp when water will be ready."""
-        return self.coordinator.get_ready_eta()
-    
-    @property
-    def extra_state_attributes(self) -> dict[str, Any] | None:
-        """Return ETA details as attributes."""
-        minutes = self.coordinator.get_minutes_to_ready()
-        if minutes is None:
-            return None
-            
-        return {
-            "minutes_remaining": minutes,
-            "seconds_remaining": minutes * 60 if minutes is not None else None
-        }
+        minutes_to_ready = int(self.coordinator.data.get("cdt", 0))
+        if minutes_to_ready > 0:
+            return (datetime.now() + timedelta(minutes=minutes_to_ready)).isoformat()
+        return None
 
 
 class TesyCurrentStepSensor(TesySensor):
     @property
     def native_value(self):
         """Return the current step or temperature value."""
-        return self.coordinator.get_current_step()
+        return int(self.coordinator.data.get("tmpC", 0))
 
 
 class TesyTargetStepSensor(TesySensor):
     @property
     def native_value(self):
         """Return the target step or temperature value."""
-        return self.coordinator.get_target_step()
+        return int(self.coordinator.data.get("tmpT", 0))
 
 
 class TesyRequestedStepSensor(TesySensor):
     @property
     def native_value(self):
         """Return the requested step or temperature value."""
-        return self.coordinator.get_requested_step()
+        try:
+            tmpR = self.coordinator.data.get("tmpR", None)
+            if tmpR is None:
+                _LOGGER.warning("Requested step (tmpR) is missing in the data.")
+                return None
+
+            requested_step = int(tmpR)
+            _LOGGER.debug("Requested step (tmpR) value: %s", requested_step)
+            return requested_step
+        except (ValueError, TypeError) as e:
+            _LOGGER.error("Invalid tmpR value: %s. Error: %s", self.coordinator.data.get("tmpR"), e)
+            return None
 
 
 class TesyModeCodeSensor(TesySensor):
     @property
     def native_value(self):
         """Return the numeric mode code."""
-        if ATTR_MODE not in self.coordinator.data:
-            return None
-        return int(self.coordinator.data[ATTR_MODE])
+        return int(self.coordinator.data.get("mode", 0))
 
 
 class TesyModeTextSensor(TesySensor):
     @property
     def native_value(self):
         """Return the text representation of the mode."""
-        return self.coordinator.get_mode_text()
-    
+        mode_code = str(self.coordinator.data.get("mode", "0"))
+        mode_map = {
+            "0": "performance",
+            "1": "P1",
+            "2": "P2",
+            "3": "P3",
+            "4": "eco",
+            "5": "EC2",
+            "6": "EC3",
+        }
+        return mode_map.get(mode_code, "unknown")
+
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:
         """Return mode information as attributes."""
-        if ATTR_MODE not in self.coordinator.data:
+        mode = self.hass.states.get("sensor.tesy_mode_mapped")
+        if mode is None or mode.state in ["unknown", "unavailable", ""]:
             return None
-            
-        mode_code = self.coordinator.data[ATTR_MODE]
+
         mode_map = {
             "0": "Performance/Manual mode",
             "1": "Program 1 (P1)",
@@ -823,10 +941,10 @@ class TesyModeTextSensor(TesySensor):
             "5": "ECO Comfort (EC2)",
             "6": "ECO Night (EC3)"
         }
-        
+
         return {
-            "mode_code": mode_code,
-            "description": mode_map.get(str(mode_code), "Unknown mode")
+            "mode_code": mode.state,
+            "description": mode_map.get(mode.state, "Unknown mode")
         }
 
 
@@ -919,3 +1037,71 @@ class TesyStatusSnapshotSensor(TesySensor):
                 snapshot[field] = self.coordinator.data[field]
                 
         return snapshot
+
+
+class TesyProfileSensor(TesySensor):
+    @property
+    def native_value(self):
+        """Return the user profile."""
+        return self.coordinator.data.get("prfl", "Unknown")
+
+
+class TesyTimestampSensor(TesySensor):
+    @property
+    def native_value(self):
+        """Return the timestamp."""
+        return self.coordinator.data.get("wtstp", None)
+
+
+class TesyMaxTemperatureSensor(TesySensor):
+    @property
+    def native_value(self):
+        """Return the maximum temperature."""
+        return self.coordinator.data.get("tmpMX", None)
+
+
+class TesyLockStatusSensor(TesySensor):
+    @property
+    def native_value(self):
+        """Return the lock status."""
+        lock_status = self.coordinator.data.get("lck", None)
+        return "Locked" if lock_status == "1" else "Unlocked"
+
+
+class TesyBoostStatusSensor(TesySensor):
+    @property
+    def native_value(self):
+        """Return the boost status."""
+        boost_status = self.coordinator.data.get("bst", None)
+        return "Active" if boost_status == "1" else "Inactive"
+
+
+class TesyVacationModeSensor(TesySensor):
+    @property
+    def native_value(self):
+        """Return the vacation mode status."""
+        vacation_status = self.coordinator.data.get("vac", None)
+        return "Enabled" if vacation_status == "1" else "Disabled"
+
+
+class TesyPowerStatusSensor(TesySensor):
+    @property
+    def native_value(self):
+        """Return the power status."""
+        power_status = self.coordinator.data.get("pwr", None)
+        return "On" if power_status == "1" else "Off"
+
+
+class TesyHeatingStatusSensor(TesySensor):
+    @property
+    def native_value(self):
+        """Return the heating status."""
+        heating_status = self.coordinator.data.get("ht", None)
+        return "Heating" if heating_status == "1" else "Not Heating"
+
+
+class TesyProgramVacationSensor(TesySensor):
+    @property
+    def native_value(self):
+        """Return the program vacation data."""
+        return self.coordinator.data.get("prgVac", None)

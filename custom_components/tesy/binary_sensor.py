@@ -36,95 +36,14 @@ async def async_setup_entry(
     coordinator = hass.data[DOMAIN][entry.entry_id]
     
     binary_sensors = [
-        TesyChildLockSensor(
-            hass,
-            coordinator,
-            entry,
-            BinarySensorEntityDescription(
-                key="child_lock",
-                name="Child Lock",
-                device_class=BinarySensorDeviceClass.LOCK,
-                icon="mdi:lock",
-            ),
-        ),
-        TesyVacationModeSensor(
-            hass,
-            coordinator,
-            entry,
-            BinarySensorEntityDescription(
-                key="vacation_mode",
-                name="Vacation Mode",
-                device_class=BinarySensorDeviceClass.PRESENCE,
-                icon="mdi:airplane",
-            ),
-        ),
-        TesyHeatingSensor(
-            hass,
-            coordinator,
-            entry,
-            BinarySensorEntityDescription(
-                key="heating",
-                name="Heating",
-                device_class=BinarySensorDeviceClass.HEAT,
-                icon="mdi:fire",
-            ),
-        ),
-        TesyErrorSensor(
-            hass,
-            coordinator,
-            entry,
-            BinarySensorEntityDescription(
-                key="error",
-                name="Error Status",
-                device_class=BinarySensorDeviceClass.PROBLEM,
-                icon="mdi:alert-circle",
-            ),
-        ),
-        # New binary sensors from the REST script
-        TesyPowerSensor(
-            hass,
-            coordinator,
-            entry,
-            BinarySensorEntityDescription(
-                key="power",
-                name="Power",
-                device_class=BinarySensorDeviceClass.POWER,
-                icon="mdi:power",
-            ),
-        ),
-        TesyBoostSensor(
-            hass,
-            coordinator,
-            entry,
-            BinarySensorEntityDescription(
-                key="boost",
-                name="Boost",
-                device_class=BinarySensorDeviceClass.POWER,
-                icon="mdi:rocket-launch",
-            ),
-        ),
-        TesyPresenceSensor(
-            hass,
-            coordinator,
-            entry,
-            BinarySensorEntityDescription(
-                key="presence",
-                name="Presence",
-                device_class=BinarySensorDeviceClass.PRESENCE,
-                icon="mdi:account-check",
-            ),
-        ),
-        TesyResetFlagSensor(
-            hass,
-            coordinator,
-            entry,
-            BinarySensorEntityDescription(
-                key="reset_flag",
-                name="Reset Flag",
-                device_class=BinarySensorDeviceClass.PROBLEM,
-                icon="mdi:restart-alert",
-            ),
-        ),
+        TesyPowerBinarySensor(coordinator, entry),
+        TesyHeatingBinarySensor(coordinator, entry),
+        TesyBoostBinarySensor(coordinator, entry),
+        TesyVacationBinarySensor(coordinator, entry),
+        TesyChildLockBinarySensor(coordinator, entry),
+        TesyPresenceBinarySensor(coordinator, entry),
+        TesyErrorActiveBinarySensor(coordinator, entry),
+        TesyResetFlagBinarySensor(coordinator, entry),
     ]
     
     async_add_entities(binary_sensors)
@@ -138,129 +57,104 @@ class TesyBinarySensor(TesyEntity, BinarySensorEntity):
 
     def __init__(
         self,
-        hass: HomeAssistant,
         coordinator: TesyCoordinator,
         entry: ConfigEntry,
-        description: BinarySensorEntityDescription,
     ) -> None:
         """Initialize the binary sensor."""
-        super().__init__(hass, coordinator, entry, description)
-
-        self.entity_description = description
-        self._attr_name = description.name
-
-        if description.device_class is not None:
-            self._attr_device_class = description.device_class
-
-        if description.icon is not None:
-            self._attr_icon = description.icon
+        super().__init__(coordinator, entry)
 
 
-class TesyChildLockSensor(TesyBinarySensor):
-    """Binary sensor for child lock status."""
+class TesyPowerBinarySensor(TesyBinarySensor):
+    """Binary sensor for Tesy power status."""
 
     @property
     def is_on(self) -> bool:
-        """Return true if child lock is enabled."""
-        if ATTR_CHILD_LOCK not in self.coordinator.data:
-            return False
-        return self.coordinator.data[ATTR_CHILD_LOCK] == "1"
+        return self.coordinator.data.get("pwr") == "1"
+
+    @property
+    def device_class(self) -> BinarySensorDeviceClass:
+        return BinarySensorDeviceClass.POWER
 
 
-class TesyVacationModeSensor(TesyBinarySensor):
-    """Binary sensor for vacation mode status."""
+class TesyHeatingBinarySensor(TesyBinarySensor):
+    """Binary sensor for Tesy heating status."""
 
     @property
     def is_on(self) -> bool:
-        """Return true if vacation mode is enabled."""
-        if ATTR_VACATION not in self.coordinator.data:
-            return False
-        return self.coordinator.data[ATTR_VACATION] == "1"
+        return self.coordinator.data.get("ht") == "1"
+
+    @property
+    def device_class(self) -> BinarySensorDeviceClass:
+        return BinarySensorDeviceClass.HEAT
 
 
-class TesyHeatingSensor(TesyBinarySensor):
-    """Binary sensor for heating status."""
+class TesyBoostBinarySensor(TesyBinarySensor):
+    """Binary sensor for Tesy boost status."""
 
     @property
     def is_on(self) -> bool:
-        """Return true if heating is active."""
-        if ATTR_IS_HEATING not in self.coordinator.data:
-            return False
-        return self.coordinator.data[ATTR_IS_HEATING] == "1"
+        return self.coordinator.data.get("bst") == "1"
+
+    @property
+    def device_class(self) -> BinarySensorDeviceClass:
+        return BinarySensorDeviceClass.POWER
 
 
-class TesyErrorSensor(TesyBinarySensor):
-    """Binary sensor for error status."""
+class TesyVacationBinarySensor(TesyBinarySensor):
+    """Binary sensor for Tesy vacation mode."""
 
     @property
     def is_on(self) -> bool:
-        """Return true if there is an error."""
-        if ATTR_ERROR not in self.coordinator.data:
-            return False
-        return self.coordinator.data[ATTR_ERROR] != "00"
-    
+        return self.coordinator.data.get("vac") == "1"
+
     @property
-    def extra_state_attributes(self) -> dict[str, str] | None:
-        """Return the error code as an attribute."""
-        if ATTR_ERROR not in self.coordinator.data:
-            return None
-        
-        error_code = self.coordinator.data[ATTR_ERROR]
-        return {"error_code": error_code}
+    def device_class(self) -> BinarySensorDeviceClass:
+        return BinarySensorDeviceClass.PRESENCE
 
 
-# New binary sensors from REST script
-class TesyPowerSensor(TesyBinarySensor):
-    """Binary sensor for power status."""
+class TesyChildLockBinarySensor(TesyBinarySensor):
+    """Binary sensor for Tesy child lock."""
 
     @property
     def is_on(self) -> bool:
-        """Return true if power is on."""
-        if ATTR_POWER not in self.coordinator.data:
-            return False
-        return self.coordinator.data[ATTR_POWER] == "1"
+        return self.coordinator.data.get("lck") == "1"
+
+    @property
+    def device_class(self) -> BinarySensorDeviceClass:
+        return BinarySensorDeviceClass.LOCK
 
 
-class TesyBoostSensor(TesyBinarySensor):
-    """Binary sensor for boost status."""
+class TesyPresenceBinarySensor(TesyBinarySensor):
+    """Binary sensor for Tesy presence."""
 
     @property
     def is_on(self) -> bool:
-        """Return true if boost mode is active."""
-        if ATTR_BOOST not in self.coordinator.data:
-            return False
-        return self.coordinator.data[ATTR_BOOST] == "1"
+        return self.coordinator.data.get("psn") == "1"
+
+    @property
+    def device_class(self) -> BinarySensorDeviceClass:
+        return BinarySensorDeviceClass.PRESENCE
 
 
-class TesyPresenceSensor(TesyBinarySensor):
-    """Binary sensor for presence detection."""
+class TesyErrorActiveBinarySensor(TesyBinarySensor):
+    """Binary sensor for Tesy error active status."""
 
     @property
     def is_on(self) -> bool:
-        """Return true if presence is detected."""
-        if "psn" not in self.coordinator.data:
-            return False
-        return self.coordinator.data["psn"] == "1"
-    
+        return self.coordinator.data.get("err") != "00"
+
     @property
-    def extra_state_attributes(self) -> dict[str, str] | None:
-        """Return presence information as an attribute."""
-        if "psn" not in self.coordinator.data:
-            return None
-        
-        presence_value = self.coordinator.data["psn"]
-        return {
-            "presence_code": presence_value,
-            "description": "Indicates if presence detection is active"
-        }
+    def device_class(self) -> BinarySensorDeviceClass:
+        return BinarySensorDeviceClass.PROBLEM
 
 
-class TesyResetFlagSensor(TesyBinarySensor):
-    """Binary sensor for reset flag."""
+class TesyResetFlagBinarySensor(TesyBinarySensor):
+    """Binary sensor for Tesy reset flag."""
 
     @property
     def is_on(self) -> bool:
-        """Return true if reset flag is active."""
-        if ATTR_RESET not in self.coordinator.data:
-            return False
-        return self.coordinator.data[ATTR_RESET] == "1"
+        return self.coordinator.data.get("reset") == "1"
+
+    @property
+    def device_class(self) -> BinarySensorDeviceClass:
+        return BinarySensorDeviceClass.PROBLEM
