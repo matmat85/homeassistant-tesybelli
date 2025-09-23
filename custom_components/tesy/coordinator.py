@@ -170,7 +170,7 @@ class TesyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "0": "performance",
             "1": "P1",
             "2": "P2",
-            "3": "P3",
+            "3": "P3",  
             "4": "eco",
             "5": "EC2",
             "6": "EC3",

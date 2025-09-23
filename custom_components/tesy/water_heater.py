@@ -95,6 +95,7 @@ class TesyWaterHeater(TesyEntity, WaterHeaterEntity):
         | WaterHeaterEntityFeature.OPERATION_MODE
         | WaterHeaterEntityFeature.ON_OFF
     )
+    _attr_should_poll = False  # Disable polling, use coordinator updates only
 
     def __init__(
         self,

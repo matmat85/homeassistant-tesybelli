@@ -531,7 +531,7 @@ class TesySensor(TesyEntity, SensorEntity):
     """Represents a sensor for a Tesy water heater controller."""
 
     _attr_has_entity_name = True
-    _attr_should_poll = True
+    _attr_should_poll = False  # Disable polling, use coordinator updates only
 
     def __init__(
         self,
@@ -755,105 +755,6 @@ class TesyPositionSensor(TesySensor):
         }
 
 
-class TesyMemoryUsageSensor(TesySensor):
-    @property
-    def native_value(self):
-        """Return ESP32 free memory from system info."""
-        # Try to get memory info from ESP32 discovery
-        try:
-            if hasattr(self.coordinator._client, 'get_esp32_system_info'):
-                system_info = self.coordinator._client.get_esp32_system_info()
-                for endpoint_data in system_info.values():
-                    if isinstance(endpoint_data, dict):
-                        # Look for common memory field names
-                        memory_fields = ['free_heap', 'freeheap', 'heap_free', 'memory_free', 'free_memory']
-                        for field in memory_fields:
-                            if field in endpoint_data:
-                                # Convert bytes to KB
-                                return int(endpoint_data[field]) // 1024
-            return None
-        except:
-            return None
-
-    @property
-    def extra_state_attributes(self) -> dict[str, Any] | None:
-        """Return memory information as attributes."""
-        try:
-            if hasattr(self.coordinator._client, 'get_esp32_system_info'):
-                system_info = self.coordinator._client.get_esp32_system_info()
-                memory_attrs = {}
-                for endpoint, data in system_info.items():
-                    if isinstance(data, dict):
-                        # Extract all memory-related fields
-                        memory_fields = ['free_heap', 'total_heap', 'heap_size', 'flash_size', 'flash_free']
-                        for field in memory_fields:
-                            if field in data:
-                                memory_attrs[field] = data[field]
-                return memory_attrs if memory_attrs else None
-        except:
-            return None
-
-
-class TesyBootReasonSensor(TesySensor):
-    @property
-    def native_value(self):
-        """Return the last boot reason."""
-        try:
-            if hasattr(self.coordinator._client, 'get_esp32_system_info'):
-                system_info = self.coordinator._client.get_esp32_system_info()
-                for endpoint_data in system_info.values():
-                    if isinstance(endpoint_data, dict):
-                        # Look for boot/reset reason fields
-                        boot_fields = ['reset_reason', 'boot_reason', 'last_reset', 'restart_reason']
-                        for field in boot_fields:
-                            if field in endpoint_data:
-                                return str(endpoint_data[field])
-            return "Unknown"
-        except:
-            return "Unknown"
-
-
-class TesyFirmwareBuildSensor(TesySensor):
-    @property
-    def native_value(self):
-        """Return firmware build information."""
-        try:
-            if hasattr(self.coordinator._client, 'get_esp32_system_info'):
-                system_info = self.coordinator._client.get_esp32_system_info()
-                for endpoint_data in system_info.values():
-                    if isinstance(endpoint_data, dict):
-                        # Look for build date/version fields
-                        build_fields = ['build_date', 'compile_date', 'firmware_date', 'build_time', 'version']
-                        for field in build_fields:
-                            if field in endpoint_data:
-                                return str(endpoint_data[field])
-                                
-                        # Try to find ESP-IDF version
-                        if 'esp_idf_version' in endpoint_data:
-                            return f"ESP-IDF {endpoint_data['esp_idf_version']}"
-            return "Unknown"
-        except:
-            return "Unknown"
-
-    @property
-    def extra_state_attributes(self) -> dict[str, Any] | None:
-        """Return firmware information as attributes."""
-        try:
-            if hasattr(self.coordinator._client, 'get_esp32_system_info'):
-                system_info = self.coordinator._client.get_esp32_system_info()
-                firmware_attrs = {}
-                for endpoint, data in system_info.items():
-                    if isinstance(data, dict):
-                        # Extract firmware-related fields
-                        fw_fields = ['sdk_version', 'esp_idf_version', 'chip_model', 'chip_cores', 'chip_revision']
-                        for field in fw_fields:
-                            if field in data:
-                                firmware_attrs[field] = data[field]
-                return firmware_attrs if firmware_attrs else None
-        except:
-            return None
-
-
 class TesyDiagnosticSensor(TesySensor):
     @property
     def native_value(self):
@@ -946,25 +847,13 @@ class TesyModeTextSensor(TesySensor):
     @property
     def native_value(self):
         """Return the text representation of the mode."""
-        mode_code = str(self.coordinator.data.get("mode", "0"))
-        mode_map = {
-            "0": "performance",
-            "1": "P1",
-            "2": "P2",
-            "3": "P3",
-            "4": "eco",
-            "5": "EC2",
-            "6": "EC3",
-        }
-        return mode_map.get(mode_code, "unknown")
+        return self.coordinator.get_mode_text()
 
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:
         """Return mode information as attributes."""
-        mode = self.hass.states.get("sensor.tesy_mode_mapped")
-        if mode is None or mode.state in ["unknown", "unavailable", ""]:
-            return None
-
+        mode_code = str(self.coordinator.data.get("mode", "0"))
+        
         mode_map = {
             "0": "Performance/Manual mode",
             "1": "Program 1 (P1)",
@@ -976,8 +865,8 @@ class TesyModeTextSensor(TesySensor):
         }
 
         return {
-            "mode_code": mode.state,
-            "description": mode_map.get(mode.state, "Unknown mode")
+            "mode_code": mode_code,
+            "description": mode_map.get(mode_code, "Unknown mode")
         }
 
 
