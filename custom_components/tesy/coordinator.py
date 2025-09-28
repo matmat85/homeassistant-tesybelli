@@ -86,25 +86,37 @@ class TesyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._config_data[CONF_UPDATE_INTERVAL] = new_interval
         _LOGGER.info("Update interval changed to %s seconds", new_interval)
 
-    async def async_set_target_temperature(self, val: int) -> None:
-        """Set target temperature for Tesy component."""
-        return await self.hass.async_add_executor_job(
+    async def async_set_target_temperature(self, val: int) -> dict[str, Any]:
+        """Set target temperature for Tesy component and refresh data."""
+        result = await self.hass.async_add_executor_job(
             self._client.set_target_temperature, val
         )
+        # Trigger immediate refresh to get updated state
+        await self.async_request_refresh()
+        return result
 
-    async def async_set_power(self, val: str) -> None:
-        """Set power for Tesy component."""
-        return await self.hass.async_add_executor_job(self._client.set_power, val)
+    async def async_set_power(self, val: str) -> dict[str, Any]:
+        """Set power for Tesy component and refresh data."""
+        result = await self.hass.async_add_executor_job(self._client.set_power, val)
+        # Trigger immediate refresh to get updated state
+        await self.async_request_refresh()
+        return result
 
-    async def async_set_boost(self, val: str) -> None:
-        """Set boost for Tesy component."""
-        return await self.hass.async_add_executor_job(self._client.set_boost, val)
+    async def async_set_boost(self, val: str) -> dict[str, Any]:
+        """Set boost for Tesy component and refresh data."""
+        result = await self.hass.async_add_executor_job(self._client.set_boost, val)
+        # Trigger immediate refresh to get updated state
+        await self.async_request_refresh()
+        return result
 
-    async def async_set_operation_mode(self, val: str) -> None:
-        """Set mode for Tesy component."""
-        return await self.hass.async_add_executor_job(
+    async def async_set_operation_mode(self, val: str) -> dict[str, Any]:
+        """Set mode for Tesy component and refresh data."""
+        result = await self.hass.async_add_executor_job(
             self._client.set_operation_mode, val
         )
+        # Trigger immediate refresh to get updated state
+        await self.async_request_refresh()
+        return result
 
     def _get_data(self) -> dict[str, Any]:
         """Get new sensor data using Tesy API."""
